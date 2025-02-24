@@ -173,7 +173,7 @@ class RobotEnv:
         # 返回值: 动作
         pass
 
-    def step(self, action,initial_step=False):
+    def step(self, action, move_time, initial_step=False):
         #输入：action，模型生成的。3位末端位置，6位末端旋转，1位夹爪状态
     
 
@@ -203,7 +203,7 @@ class RobotEnv:
             print(target_pose)
             time.sleep(3)
         print(f"current_pose: {self.robot.get_joint_positions()}")
-        self.robot.move(target_pose)
+        self.robot.move(target_pose, move_time)
 
         # 根据夹爪状态，控制夹爪
         self.robot.gripper_control(gripper_state)
@@ -728,15 +728,15 @@ if __name__ == "__main__":
     setp3 = np.array(setp3)
 
     action = [-0.503, -0.0088, 0.31397, -0.84110996 ,0.0412474 , 0.53928906 ,-0.49911578 ,0.32493579 ,-0.80330577,1]
-    action = np.array(action)
+    action = np.array(action)+0.03
     # observed_state, _reward, terminated, truncated, info = robotEnv.step(action)
     # robot = ur5Robot('192.168.0.201')
     # robot.move(setp1,trajectory_time=8)
     # robot.move(setp2,trajectory_time=8)
     robot_environment = RobotEnv()
     robot_environment.reset()
-    robot_environment.step(action)
-    # robot_environment.step(setp1)
+    # robot_environment.step(action)
+    robot_environment.step(setp1, 3)
 
     
     # robot = ur5Robot('192.168.0.201')
