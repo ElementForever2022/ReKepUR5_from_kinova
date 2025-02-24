@@ -67,13 +67,13 @@ if __name__ == '__main__':
 
     #图片保存的标识和路径
     #在这里设default=N，则获得图像序号为N
-    parser.add_argument('--frame_number', type=int, default=5)
+    parser.add_argument('--frame_number', type=int, default=10)
     parser.add_argument('--data_path', type=str, default='data')
 
     args = parser.parse_args()
 
     #路径
-    data_path = "/home/ur5/rekep/Rekep4Real/data"
+    data_path = "/home/ur5/rekep/ReKepUR5_from_kinova/data"
 
     prs = PRS()
     try:

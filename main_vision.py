@@ -19,8 +19,8 @@ from hydra import compose, initialize
 from hydra.utils import instantiate
 
 #sam的权重文件和配置文件的路径
-checkpoint =  "//home//ur5//rekep//Rekep4Real//sam2model//sam2.1_hiera_base_plus.pt"
-model_cfg = "//home//ur5//rekep//Rekep4Real//sam2model//sam2.1_hiera_b+.yaml"
+checkpoint = "//home//ur5//rekep//ReKepUR5_from_kinova//sam2model//sam2.1_hiera_base_plus.pt"
+model_cfg = "//home//ur5//rekep//ReKepUR5_from_kinova//sam2model//sam2.1_hiera_b+.yaml"
 # checkpoint =  "//home//kinova//Model//sam2.1_hiera_base_plus.pt"
 # model_cfg = "//home//kinova//Model//sam2.1_hiera_base_plus.yaml"
 
