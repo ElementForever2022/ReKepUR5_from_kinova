@@ -13,7 +13,8 @@ from rekep.subgoal_solver import SubgoalSolver
 from rekep.path_solver import PathSolver
 import rekep.transform_utils as T
 from rekep.visualizer import Visualizer
-from kinova import KinovaRobot
+# from kinova import KinovaRobot
+from robotEnv import RobotEnv
 
 from rekep.utils import (
     bcolors,
@@ -71,7 +72,8 @@ class MainR2D2:
         torch.cuda.manual_seed(self.config['seed'])
 
         # self.vision = R2D2Vision(visualize=self.visualize)
-        self.kinova = KinovaRobot()
+        # self.kinova = KinovaRobot()
+        self.robot_env = RobotEnv()
         self.env = R2D2Env(global_config['env'])
         
         ik_solver = FrankaIKSolver(
@@ -109,7 +111,7 @@ class MainR2D2:
         # Load program info and constraints
         with open(os.path.join(rekep_program_dir, 'metadata.json'), 'r') as f:
             self.program_info = json.load(f)
-        
+
         # Register initial keypoints
         self.env.register_keypoints(self.program_info['init_keypoint_positions'])
         
@@ -210,11 +212,13 @@ class MainR2D2:
             return
 
     def _kinova_get_joint_pos(self):
-        joint_pos = self.kinova.get_joint_positions()
+        # joint_pos = self.kinova.get_joint_positions()
+        joint_pos = self.robot_env.robot.get_joint_positions()
         return joint_pos
     
     def _kinova_get_ee_pos(self):
-        ee_pos = self.kinova.get_tool_position()
+        # ee_pos = self.kinova.get_tool_position()
+        ee_pos = self.robot_env.robot.get_tcp_pose()
         angles = ee_pos[3:]
         angles = np.radians(angles)
         rotation = R.from_euler('xyz', angles)
@@ -238,7 +242,8 @@ class MainR2D2:
             "theta_y": target_pos[4],
             "theta_z": target_pos[5]
         }
-        self.kinova.move_to_tool_position(target_pos)
+        # self.kinova.move_to_tool_position(target_pos)
+        self.robot_env.step(target_pos,3)
 
     def _load_constraints(self, rekep_program_dir):
         """Helper to load all stage constraints"""
@@ -367,7 +372,8 @@ if __name__ == "__main__":
     #     print("No directories found under vlm_query")
     #     sys.exit(1)
 
-    newest_rekep_dir = "//home//kinova//Rekep4Real//vlm_query//2025-01-21_22-27-34_help_me_take_that_bottle_of_water"
+    # newest_rekep_dir = "//home//kinova//Rekep4Real//vlm_query//2025-01-21_22-27-34_help_me_take_that_bottle_of_water"
+    newest_rekep_dir = '/home/ur5/rekep/Rekep4Real/vlm_query/2025-01-21_22-27-34_help_me_take_that_bottle_of_water'
 
     main = MainR2D2(visualize=args.visualize)
     main.perform_task(instruction=args.instruction, rekep_program_dir=newest_rekep_dir)
