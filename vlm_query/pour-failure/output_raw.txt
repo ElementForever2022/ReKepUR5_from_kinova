@@ -1,0 +1,41 @@
+```python
+# The task involves pouring the object in the bowl into the pot. Since the end-effector is already at the bowl's keypoint, 
+# and the bowl is already aligned with the pot and at the proper height, the task only involves one stage: "tilt the bowl to pour the object."
+
+num_stages = 1
+
+### stage 1 sub-goal constraints
+def stage1_subgoal_constraint1(end_effector, keypoints):
+    """
+    Ensure the bowl is tilted to pour the object into the pot.
+    This can be achieved by ensuring the vector formed by two keypoints on the bowl (e.g., keypoints 48 and 49) 
+    is at a specific angle with respect to the z-axis.
+    """
+    bowl_vector = keypoints[49] - keypoints[48]
+    z_axis = np.array([0, 0, 1])
+    angle = np.arccos(np.dot(bowl_vector, z_axis) / (np.linalg.norm(bowl_vector) * np.linalg.norm(z_axis)))
+    desired_angle = np.pi / 4  # Tilt the bowl by 45 degrees
+    cost = np.abs(angle - desired_angle)
+    return cost
+
+### stage 1 path constraints
+def stage1_path_constraint1(end_effector, keypoints):
+    """
+    Ensure the robot continues to hold the bowl during the pouring process.
+    This can be achieved by keeping the end-effector aligned with the bowl's keypoint (e.g., keypoint 48).
+    """
+    cost = np.linalg.norm(end_effector - keypoints[48])
+    return cost
+
+"""
+Summarize keypoints to be grasped in all grasping stages.
+Since the end-effector is already at the bowl's keypoint, no additional grasping is required.
+"""
+grasp_keypoints = [-1]
+
+"""
+Summarize at **the end of which stage** the robot should release the keypoints.
+The robot does not need to release the bowl during this task.
+"""
+release_keypoints = [-1]
+```

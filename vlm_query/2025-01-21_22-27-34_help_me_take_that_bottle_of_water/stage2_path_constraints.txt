@@ -1,0 +1,4 @@
+def stage2_path_constraint1(end_effector, keypoints):
+    """The robot must still be grasping the bottle cap (keypoint 0)."""
+    return np.linalg.norm(end_effector - keypoints[0])
+

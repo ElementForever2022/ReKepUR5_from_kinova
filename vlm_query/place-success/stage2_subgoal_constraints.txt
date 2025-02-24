@@ -1,0 +1,8 @@
+def stage2_subgoal_constraint1(end_effector, keypoints):
+    """Ensure the pasta bag (keypoint 17) is inside the drawer (keypoint 13)."""
+    drawer_keypoint = keypoints[13]
+    pasta_bag_keypoint = keypoints[17]
+    offsetted_point = drawer_keypoint + np.array([0, 0, 0])  # No offset needed, align directly.
+    cost = np.linalg.norm(pasta_bag_keypoint - offsetted_point)
+    return cost
+

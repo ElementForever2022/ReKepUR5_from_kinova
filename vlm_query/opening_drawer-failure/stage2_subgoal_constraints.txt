@@ -1,0 +1,7 @@
+def stage2_subgoal_constraint1(end_effector, keypoints):
+    """The drawer handle (keypoint 21) must be displaced by 10cm along the x-axis (positive direction)."""
+    handle_position = keypoints[21]
+    target_position = handle_position + np.array([0.1, 0, 0])  # 10cm along the x-axis
+    cost = np.linalg.norm(handle_position - target_position)
+    return cost
+

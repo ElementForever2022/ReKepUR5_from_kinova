@@ -1,0 +1,4 @@
+def stage2_subgoal_constraint1(end_effector, keypoints):
+    """Bring keypoint 1 to keypoint 3 to fold the cloth."""
+    return np.linalg.norm(keypoints[1] - keypoints[3])
+

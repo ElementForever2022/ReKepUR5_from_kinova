@@ -1,0 +1,16 @@
+realsense:
+  model: "D435i"
+  serial_number: ""  # Leave empty to use first available D435i
+  resolution:
+    width: 640
+    height: 480
+  fps: 30
+  enable_infrared: true
+  enable_depth: true
+  depth_format: "Z16"
+  color_format: "RGB8"
+  align_depth: true
+  filters:
+    spatial: true
+    temporal: true
+    decimation: true

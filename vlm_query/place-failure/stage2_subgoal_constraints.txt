@@ -1,0 +1,10 @@
+def stage2_subgoal_constraint1(end_effector, keypoints):
+    """
+    The pasta bag (keypoint 33) must be inside the drawer.
+    The cost is the Euclidean distance between keypoint 33 and the center of the drawer (keypoint 30).
+    """
+    drawer_center_keypoint = keypoints[30]
+    pasta_bag_keypoint = keypoints[33]
+    cost = np.linalg.norm(pasta_bag_keypoint - drawer_center_keypoint)
+    return cost
+

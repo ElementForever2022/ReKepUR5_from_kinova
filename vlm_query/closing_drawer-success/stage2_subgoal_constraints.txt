@@ -1,0 +1,11 @@
+def stage2_subgoal_constraint1(end_effector, keypoints):
+    """
+    Ensure the drawer is fully closed.
+    The cost is the Euclidean distance between the drawer's current position (keypoint 43)
+    and its fully closed position, which is offset from keypoint 43 along the x-axis.
+    """
+    closed_position = keypoints[43] + np.array([-0.2, 0, 0])  # Assuming 20cm to the left closes the drawer.
+    drawer_position = keypoints[43]
+    cost = np.linalg.norm(drawer_position - closed_position)
+    return cost
+

@@ -1,0 +1,13 @@
+open3d
+omegaconf
+opencv-python
+hydra-core
+openai
+torch
+kmeans_pytorch
+parse
+numba
+pyrealsense2
+supervision
+dds_cloudapi_sdk>=0.2.3
+huggingface_hub

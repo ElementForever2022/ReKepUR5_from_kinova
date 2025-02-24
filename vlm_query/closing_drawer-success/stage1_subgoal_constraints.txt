@@ -1,0 +1,9 @@
+def stage1_subgoal_constraint1(end_effector, keypoints):
+    """
+    Align the end-effector with the drawer handle (keypoint 43).
+    The cost is the Euclidean distance between the end-effector and keypoint 43.
+    """
+    handle_position = keypoints[43]
+    cost = np.linalg.norm(end_effector - handle_position)
+    return cost
+

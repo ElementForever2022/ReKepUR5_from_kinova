@@ -1,0 +1,6 @@
+def stage2_path_constraint1(end_effector, keypoints):
+    """The robot must still be grasping the pasta bag (keypoint 17)."""
+    pasta_bag_keypoint = keypoints[17]
+    cost = np.linalg.norm(end_effector - pasta_bag_keypoint)
+    return cost
+

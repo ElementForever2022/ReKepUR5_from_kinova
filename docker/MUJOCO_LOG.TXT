@@ -1,0 +1,9 @@
+Mon Sep 30 20:48:34 2024
+WARNING: OpenGL error 0x500 in or before mjr_makeContext
+
+Mon Sep 30 20:50:03 2024
+WARNING: OpenGL error 0x500 in or before mjr_makeContext
+
+Mon Sep 30 20:55:12 2024
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 10.4160.
+

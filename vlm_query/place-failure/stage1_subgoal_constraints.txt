@@ -1,0 +1,9 @@
+def stage1_subgoal_constraint1(end_effector, keypoints):
+    """
+    Align the end-effector with the pasta bag's keypoint (keypoint 33).
+    The cost is the Euclidean distance between the end-effector and keypoint 33.
+    """
+    pasta_bag_keypoint = keypoints[33]
+    cost = np.linalg.norm(end_effector - pasta_bag_keypoint)
+    return cost
+

@@ -1,0 +1,6 @@
+def stage2_path_constraint1(end_effector, keypoints):
+    """The robot must still be grasping the drawer handle (keypoint 21)."""
+    handle_position = keypoints[21]
+    cost = np.linalg.norm(end_effector - handle_position)
+    return cost
+
