@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import cv2
 
 # 加载.npy文件
-color = np.load('/home/ur5/rekep/Rekep4Real/data/color_000005.npy')
+color = np.load('/home/ur5/rekep/ReKepUR5_from_kinova/data/color_000005.npy')
 color_rgb = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
 
-depth = np.load('/home/ur5/rekep/Rekep4Real/data/depth_000005.npy')
+depth = np.load('/home/ur5/rekep/ReKepUR5_from_kinova/data/depth_000005.npy')
 
 # 查看数据形状和数据类型，确认数据格式
 print("Color 数据形状:", color_rgb.shape)
