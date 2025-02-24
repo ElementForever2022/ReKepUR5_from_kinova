@@ -76,6 +76,7 @@ if __name__ == '__main__':
     data_path = "/home/ur5/rekep/ReKepUR5_from_kinova/data"
 
     prs = PRS()
+    time.sleep(2)
     try:
         color_image, depth_image = prs.get_frames()
 
