@@ -4,6 +4,7 @@ import numpy as np
 import os
 import argparse
 import time
+import cv2  # 添加 OpenCV 库
 
 # create a class to take color and depth frames and save them as npy
 class PRS:
@@ -50,7 +51,12 @@ class PRS:
         depth_path = os.path.join(data_path, 'depth_{:06d}.npy'.format(frame_number))
         np.save(color_path, color_image)
         np.save(depth_path, depth_image)
-        return color_path, depth_path
+        
+        # 新增：保存为 PNG 格式
+        png_path = os.path.join(data_path, 'color_{:06d}.png'.format(frame_number))
+        cv2.imwrite(png_path, color_image)
+        
+        return color_path, depth_path, png_path
     
     def close(self):
         self.pipeline.stop()
@@ -61,13 +67,13 @@ if __name__ == '__main__':
 
     #图片保存的标识和路径
     #在这里设default=N，则获得图像序号为N
-    parser.add_argument('--frame_number', type=int, default=5)
+    parser.add_argument('--frame_number', type=int, default=10)
     parser.add_argument('--data_path', type=str, default='data')
 
     args = parser.parse_args()
 
     #路径
-    data_path = "/home/ur5/rekep/Rekep4Real/data"
+    data_path = "/home/ur5/rekep/ReKepUR5_from_kinova/data"
 
     prs = PRS()
     time.sleep(2)
