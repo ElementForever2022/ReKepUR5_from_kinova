@@ -111,6 +111,9 @@ class MainVision:
         color_path = os.path.join(data_path, f'color_{frame_number:06d}.npy')
         depth_path = os.path.join(data_path, f'depth_{frame_number:06d}.npy')
 
+        #png格式的rgb图
+        png_path = os.path.join(data_path, f'color_{frame_number:06d}.png')
+
         if not os.path.exists(color_path) or not os.path.exists(depth_path):
             raise FileNotFoundError(f"Color or depth frame not found for frame {frame_number}")
 
@@ -124,7 +127,9 @@ class MainVision:
         gdino = GroundingDINO()
 
         #png格式的rgb图
-        rgb_path = '/home/ur5/rekep/Rekep4Real/d435i/camera_shot/color_shot_0.png' # save rgb to png at data temperarily for upload
+        # rgb_path = '/home/ur5/rekep/Rekep4Real/d435i/camera_shot/color_shot_0.png' # save rgb to png at data temperarily for upload
+        rgb_path = png_path
+        #使用photo.py生成的npy格式的rgb图转换成的png格式的rgb图
 
         #通道转换
         # bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
