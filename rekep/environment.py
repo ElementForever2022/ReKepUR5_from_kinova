@@ -134,7 +134,8 @@ class R2D2Env:
         self.robot_state_path =  Path('./robot_state.json')
         
         self.robot = RobotController()
-        self.reset_joint_pos = np.array([0.5, 0, 0.5, 1, 0, 0, 0])  # Default home position
+        self.reset_joint_pos = np.array([0.5, 0, 0.5, 1, 0, 0])
+        # self.reset_joint_pos = np.array([0.5, 0, 0.5, 1, 0, 0, 0])  # Default home position
         self.gripper_state = 1.0  # 1.0 is open, 0.0 is closed
         self.world2robot_homo = np.eye(4)
         print("Robot interface initialized")

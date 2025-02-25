@@ -138,6 +138,7 @@ class MainR2D2:
         while int(stage) <= self.program_info['num_stages']:
             scene_keypoints = self.env.get_keypoint_positions()
             self.keypoints = np.concatenate([[self.env.get_ee_pos()], scene_keypoints], axis=0)
+            print(f"stage {int(stage)}: keypoints{self.keypoints}")
             # self.curr_ee_pose = self.env.get_ee_pose()  # TODO check, may be constant? 
             # self.curr_joint_pos = self.env.get_arm_joint_positions() 
             self.curr_ee_pose = self._kinova_get_ee_pos()
@@ -162,6 +163,9 @@ class MainR2D2:
        
             # Generate actions for this stage
             next_subgoal = self._get_next_subgoal(from_scratch=self.first_iter)
+            print(f'next subgoal: {next_subgoal}')
+
+            # 这里运行时， 维度对不上
             next_path = self._get_next_path(next_subgoal, from_scratch=self.first_iter)
             self.first_iter = False
 
@@ -177,8 +181,10 @@ class MainR2D2:
                 
             for i in range(next_path.shape[0]):
                 if self.is_grasp_stage:
+                    print('is grasp stage')
                     next_path[i, 7] = self.env.get_gripper_close_action()
                 elif self.is_release_stage:
+                    print('is release stage')
                     next_path[i, 7] = self.env.get_gripper_open_action()
 
             for i in range(next_path.shape[0]):
@@ -218,11 +224,11 @@ class MainR2D2:
     
     def _kinova_get_ee_pos(self):
         # ee_pos = self.kinova.get_tool_position()
-        ee_pos = self.robot_env.robot.get_tcp_pose()
+        ee_pos = self.robot_env.robot.get_tcp_pose() # tool central pose 工具中心点
         angles = ee_pos[3:]
         angles = np.radians(angles)
         rotation = R.from_euler('xyz', angles)
-        quat = rotation.as_quat()
+        quat = rotation.as_quat() # 可能是四元旋转矩阵
         quat = quat.reshape(1, -1)
         quat = quat[0]
         return np.concatenate([ee_pos[:3], quat])
@@ -242,8 +248,10 @@ class MainR2D2:
             "theta_y": target_pos[4],
             "theta_z": target_pos[5]
         }
+        print(f'kinova move to {target_pos}')
         # self.kinova.move_to_tool_position(target_pos)
-        self.robot_env.step(target_pos,3)
+        # self.robot_env.step(target_pos,3)
+        self.robot_env.move_to_ee_pos(target_pos)
 
     def _load_constraints(self, rekep_program_dir):
         """Helper to load all stage constraints"""
@@ -280,12 +288,14 @@ class MainR2D2:
         print_opt_debug_dict(debug_dict)
         if self.visualize:
             self.visualizer.visualize_subgoal(subgoal_pose, self.data_path)
+        print('subgoal calc finished')
         return subgoal_pose
 
     @timer_decorator
     def _get_next_path(self, next_subgoal, from_scratch):
         # pdb.set_trace()
         print(f"Start solving path from {self.curr_ee_pose} to {next_subgoal}")
+        print(f'curr joint pos:{self.curr_joint_pos}')
         path_constraints = self.constraint_fns[self.stage]['path']
         path, debug_dict = self.path_solver.solve(self.curr_ee_pose,
                                                     next_subgoal,

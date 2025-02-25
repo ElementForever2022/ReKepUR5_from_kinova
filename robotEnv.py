@@ -172,6 +172,29 @@ class RobotEnv:
         # 采样一个动作
         # 返回值: 动作
         pass
+    def move_to_ee_pos(self, target_ee_pos, move_time=3):
+        """
+        将ee(end effector)移动到某个特定的位姿
+        target_ee_pos: dict, 格式为
+        {
+            "x",
+            "y",
+            "z",
+            "theta_x",
+            "theta_y",
+            "theta_z"
+        }
+        """
+        target_pose = np.array([
+            target_ee_pos['x'],
+            target_ee_pos['y'],
+            target_ee_pos['z'],
+            target_ee_pos['theta_x'],
+            target_ee_pos['theta_y'],
+            target_ee_pos['theta_z']
+        ]) # 将dict转换为array
+        self.robot.move(target_pose, move_time)
+
 
     def step(self, action, move_time, initial_step=False):
         #输入：action，模型生成的。3位末端位置，6位末端旋转，1位夹爪状态
@@ -300,6 +323,11 @@ class ur5Robot:
         self.setp_names, self.setp_types = conf.get_recipe('setp')
         self.watchdog_names, self.watchdog_types = conf.get_recipe('watchdog')
 
+        # 连接状态
+        self.is_connected = False  
+         
+
+    def __connect(self):
         # 连接
         self.con = rtde.RTDE(self.ip, self.port)
         connection_state = self.con.connect()
@@ -325,10 +353,11 @@ class ur5Robot:
 
         #连不上就退出
         if not self.con.send_start():
-            sys.exit()   
-         
+            sys.exit() 
+        
+        self.is_connected = True
 
-    
+
     def move(self, target_pose, trajectory_time=0.1):
         """
         笛卡尔空间直线运动
@@ -339,6 +368,8 @@ class ur5Robot:
             speed: 运动速度 (m/s)
             acceleration: 加速度 (m/s^2)
         """
+        if not self.is_connected:
+            self.__connect()
 
         #获取当前末端执行器位姿
         state = self.con.receive()
@@ -446,6 +477,8 @@ class ur5Robot:
         Returns:
             list: 当前关节角度 [j1, j2, j3, j4, j5, j6]
         """
+        if not self.is_connected:
+            self.__connect()
         state = self.con.receive() # 获取当前状态
         current_joint_positions = state.actual_q # 获取当前关节角度
         return current_joint_positions
@@ -456,6 +489,8 @@ class ur5Robot:
         Returns:
             list: 当前TCP位姿 [x, y, z, rx, ry, rz]
         """
+        if not self.is_connected:
+            self.__connect()
         state = self.con.receive() # 获取当前状态
         current_tcp_pose = state.actual_TCP_pose # 获取当前末端执行器位姿
         return current_tcp_pose
