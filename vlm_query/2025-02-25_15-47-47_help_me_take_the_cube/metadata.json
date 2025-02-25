@@ -1,0 +1,17 @@
+{
+    "init_keypoint_positions": [
+        [
+            0.009494800097223444,
+            0.061995459458341305,
+            0.432
+        ]
+    ],
+    "num_keypoints": 1,
+    "num_stages": 1,
+    "grasp_keypoints": [
+        0
+    ],
+    "release_keypoints": [
+        -1
+    ]
+}
