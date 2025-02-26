@@ -384,7 +384,8 @@ if __name__ == "__main__":
 
     # newest_rekep_dir = "//home//kinova//Rekep4Real//vlm_query//2025-01-21_22-27-34_help_me_take_that_bottle_of_water"
     # newest_rekep_dir = '/home/ur5/rekep/Rekep4Real/vlm_query/2025-01-21_22-27-34_help_me_take_that_bottle_of_water'
-    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-25_15-47-47_help_me_take_the_cube'
+    # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-25_15-47-47_help_me_take_the_cube'
+    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-26_10-35-40_help_me_take_the_cube'
 
     main = MainR2D2(visualize=args.visualize)
     main.perform_task(instruction=args.instruction, rekep_program_dir=newest_rekep_dir)

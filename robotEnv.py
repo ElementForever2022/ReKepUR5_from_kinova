@@ -24,6 +24,7 @@ from docs.test_6drot import convert_euler_to_rotation_matrix
 
 import torch
 
+import threading
 
 
 # Manager to control the cameras
@@ -324,7 +325,8 @@ class ur5Robot:
         self.watchdog_names, self.watchdog_types = conf.get_recipe('watchdog')
 
         # 连接状态
-        self.is_connected = False  
+        self.__connect()
+        # self.is_connected = False  
          
 
     def __connect(self):
@@ -356,6 +358,29 @@ class ur5Robot:
             sys.exit() 
         
         self.is_connected = True
+
+        # 创建一个单独的线程, 每10s与看门狗对话一次
+        self.last_time_comunicate = time.time() - 20
+        # self.home = [-0.503, -0.0088, 0.31397, 1.266, -2.572, -0.049]
+        def communicate():
+            while True:
+                if time.time() - self.last_time_comunicate > 5:
+                    # 此时触发看门狗
+                    print('watchdog triggered')
+
+                    # 获取当前位置
+                    curr_pose = self.get_tcp_pose()
+
+                    # 自己移动到自己的位置
+                    self.move(curr_pose,0.1)
+                    
+                    # 更新时钟
+                    self.last_time_comunicate = time.time()
+                time.sleep(1)
+        watchdog_thread = threading.Thread(target=communicate)
+        watchdog_thread.daemon = True # 守护进程
+        watchdog_thread.start() # 开启该进程
+
 
 
     def move(self, target_pose, trajectory_time=0.1):
@@ -409,6 +434,8 @@ class ur5Robot:
         print(f"It took {time.time()-t_start}s to execute the servoJ to point 1")
         print('Final TCP pose:', self.con.receive().actual_TCP_pose)
 
+        # 更新上次通信时间
+        self.last_time_comunicate = time.time()
         # self.stop()
 
         pass
