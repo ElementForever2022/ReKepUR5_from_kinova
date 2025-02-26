@@ -157,6 +157,16 @@ class MainVision:
         print(f"Debug: Generated {len(masks)} masks")
         print(f"Debug: masks shape: {masks[0].shape}")
         print(f"Debug: Type of masks: {type(masks)}")
+        print(f'Debug: Data type of masks: {masks.dtype}') # float32
+        
+        # 将rgb的mask[0]的部分进行反色
+        # masked_rgb = rgb.copy()
+        # first_mask = masks[0].astype(np.bool_)
+        # print(rgb.shape)
+        # rgb[first_mask] = 255-rgb[first_mask]
+        # cv2.imshow('masked_rgb',masked_rgb)
+        # cv2.waitKey(0)
+
         # TODO: Add point cloud data from DepthPro model 
 
         # Generate point cloud from depth image

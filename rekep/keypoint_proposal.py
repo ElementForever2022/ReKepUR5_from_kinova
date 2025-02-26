@@ -130,10 +130,10 @@ class KeypointProposer:
             # draw a box
             box_width = 30 + 10 * (text_length - 1)
             box_height = 30
-            cv2.rectangle(projected, (pixel[1] - box_width // 2, pixel[0] - box_height // 2), (pixel[1] + box_width // 2, pixel[0] + box_height // 2), (255, 255, 255), -1)
-            cv2.rectangle(projected, (pixel[1] - box_width // 2, pixel[0] - box_height // 2), (pixel[1] + box_width // 2, pixel[0] + box_height // 2), (0, 0, 0), 2)
+            cv2.rectangle(projected, (pixel[2] - box_width // 2, pixel[1] - box_height // 2), (pixel[2] + box_width // 2, pixel[1] + box_height // 2), (255, 255, 255), -1)
+            cv2.rectangle(projected, (pixel[2] - box_width // 2, pixel[1] - box_height // 2), (pixel[2] + box_width // 2, pixel[1] + box_height // 2), (0, 0, 0), 2)
             # draw text
-            org = (pixel[1] - 7 * (text_length), pixel[0] + 7)
+            org = (pixel[2] - 7 * (text_length), pixel[1] + 7)
             color = (255, 0, 0)
             cv2.putText(projected, str(keypoint_count), org, cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
             keypoint_count += 1
