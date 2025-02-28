@@ -96,7 +96,7 @@ for planner in planners:
             list_to_setp(setp, pose)
             con.send(setp)
 
-    print(f"It took {time.time()-t_start}s to execute the servoJ to point 1")
+    print(f"It took {time.time()-t_start}s to execute the servoJ to point {planners.index(planner)+1}")
     print('Final TCP pose:', con.receive().actual_TCP_pose)
 
 # watchdog.input_int_register_0 = 3

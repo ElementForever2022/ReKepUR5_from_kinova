@@ -24,6 +24,10 @@ from docs.test_6drot import convert_euler_to_rotation_matrix
 
 import torch
 
+import cv2
+import datetime
+from pynput import keyboard
+
 import threading
 
 
@@ -71,12 +75,29 @@ class Camera:
         self.serial_number = serial_number
 
         self.pipeline = rs.pipeline()
-        config = rs.config()
-        config.enable_device(self.serial_number)
-        config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-        config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-        
-        self.pipeline.start(config)
+        # config = rs.config()
+        # config.enable_device(self.serial_number)
+        # config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+        # config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+
+        self.config = rs.config()
+        self.config.enable_device(self.serial_number)
+        self.config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+        self.config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+        self.pipeline.start(self.config)
+        self.align = rs.align(rs.stream.color)
+        self.depth_scale = 0.001
+        self.intrinsics = self.get_intrinsics()
+    def get_intrinsics(self):
+        # D435i 的默认内参（你可以根据实际情况修改这些值）
+        class RS_Intrinsics:
+            def __init__(self):
+                self.fx = 386.738  # focal length x
+                self.fy = 386.738
+                self.ppx = 319.5
+                self.ppy = 239.5
+        intrinsics = RS_Intrinsics()
+        return intrinsics
         
     def get_rgb_frame(self):
         frames = self.pipeline.wait_for_frames()
@@ -89,6 +110,112 @@ class Camera:
         depth_frame = frames.get_depth_frame()
         depth_image = np.asanyarray(depth_frame.get_data())
         return depth_image
+    
+    def realtime_shoot(self, shoot_button='s', quit_button='q', save_dir='./chessboards/', retries=5):
+        """
+        实时获取摄像机图像，并且按下特定的按键可以拍照或退出
+        """
+        threshold = 100 # 图片二值化阈值
+
+        try:
+            while True:
+                # 定义字体、大小、颜色和粗细
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                font_scale = 0.5
+                color = (255, 255, 255)  # 白色 (B, G, R)
+                thickness = 1
+
+                for _ in range(retries):
+                    try:
+                        frames = self.pipeline.wait_for_frames()
+                        aligned_frames = self.align.process(frames)
+                        depth_frame = aligned_frames.get_depth_frame()
+                        color_frame = aligned_frames.get_color_frame()
+                        if not depth_frame or not color_frame:
+                            raise RuntimeError("Could not acquire depth or color frame.")
+                        depth_image = np.asanyarray(depth_frame.get_data())
+                        color_image = np.asanyarray(color_frame.get_data())
+                        break
+                        
+                        # print(f'color image shape: {color_image.shape}')
+                        # print(f'depth image shape: {depth_image.shape}')
+                        # return color_image, depth_image
+                    except RuntimeError as e:
+                        print(f"Error: {e}. Retrying...")
+                        time.sleep(1)
+                else:
+                    raise RuntimeError(f"Failed to acquire frames after {retries} retries.")
+                # 投射到cv2窗口上面的画面(非保存的画面)
+                screen = np.zeros((color_image.shape[0], color_image.shape[1]*2, 3),dtype=np.uint8)
+                # 左边部分是原图
+                screen[:,:color_image.shape[1],:] = color_image.copy()
+                # 实时找到画面的棋盘格
+                gray = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
+                # 对图片进行二值化
+                gray[gray<threshold] = 0
+                gray[gray>=threshold] = 255
+                # 将灰度图转换回彩色图(看起来还是黑白的)
+                gray_3channel = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+                gray_3channel_demo = gray_3channel.copy()
+                
+                pattern_size = (7,7) # 棋盘格大小是8*8
+                ret, corners = cv2.findChessboardCornersSB(gray_3channel, pattern_size, None) # 实时找到画面8*8的棋盘格
+                if ret:
+                    # 如果检测到棋盘，把棋盘标出来
+                    cv2.drawChessboardCorners(screen, pattern_size, corners, ret)
+                    cv2.drawChessboardCorners(gray_3channel_demo, pattern_size, corners, ret)
+
+                    # 在标出来棋盘的同时，把角点的序数标出来
+                    for index_corner, corner in enumerate(corners):
+                        corner_position = np.array(corner[0], dtype=np.int32)
+                        cv2.putText(gray_3channel_demo, f'{index_corner}',corner_position, font, font_scale/2, (0,0,255), thickness)
+                        cv2.putText(screen, f'{index_corner}',corner_position, font, font_scale/2, (0,0,255), thickness)
+
+
+                # 在屏幕右边绘制用于处理的图片
+                screen[:,color_image.shape[1]:,:] = gray_3channel_demo
+
+                # 对画面进行一些修饰
+                position_line1 = (30, 20)  # (x, y)坐标
+                position_line2 = (30, 50)  # (x, y)坐标
+                position_line3 = (30, 80)  # (x, y)坐标
+                position_line4 = (30, 110)  # (x, y)坐标
+                position_line5 = (30, 140)
+                
+                if ret:
+                    color = (0,0,255) # 如果找到了棋盘，则字体为红色
+                thickness = 1
+                cv2.rectangle(screen, (position_line1[0],10), (screen.shape[1]//2,position_line5[-1]), (0,0,0), thickness=-1)
+                cv2.putText(screen,f'press {shoot_button} to save image', position_line1, font, font_scale, color, thickness)
+                cv2.putText(screen,f'press {quit_button} to quit', position_line2, font, font_scale, color, thickness)
+                cv2.putText(screen,f'Bi-value threshold: {threshold}, press p to increase and press m to decrease', position_line3, font, font_scale, color, thickness)
+                cv2.putText(screen,f'RGB resolution: {color_image.shape}', position_line4, font, font_scale, color, thickness)
+                cv2.putText(screen,f'depth resolution: {depth_image.shape}', position_line5, font, font_scale, color, thickness)
+                
+                # 实时展示画面
+                cv2.imshow('realtime camera', screen)
+                key_presseed = cv2.waitKey(1)
+                if key_presseed & 0xff==ord('q'):
+                    # 按下q就退出
+                    break
+                elif key_presseed & 0xff==ord('s') and ret:
+                    # 按下s就保存
+                    current_time = datetime.datetime.now()
+                    timestamp = current_time.strftime("%Y-%m-%d-%H-%M-%S")
+                    with open(f'{save_dir}/timestamps','a') as f:
+                        f.write(f'{timestamp}\n')
+                    cv2.imwrite(f'{save_dir}rgb_{timestamp}.png', gray_3channel) # 要保存的是可以识别出棋盘的画面
+                    np.save(f'{save_dir}depth_{timestamp}.npy', depth_image)
+                    print('Image saved!')
+                elif key_presseed & 0xff==ord('p'):
+                    threshold += 1
+                elif key_presseed & 0xff==ord('m'):
+                    threshold -= 1
+                else:
+                    # 其他按键保留
+                    continue
+        finally:
+            cv2.destroyAllWindows()
 
 
 class RobotEnv:
@@ -290,6 +417,43 @@ class RobotEnv:
         # 返回值: 一张图像 np格式 来自global相机
         """
         return self.global_camera.get_rgb_frame()
+    
+    def realtime_shoot(self):
+        def button_detect():
+            def on_press(key):
+                try:
+                    if key.char == 'q':
+                        return False
+                    elif key.char == 's':
+                        print('save image')
+
+                        tcp = self.robot.get_tcp_pose()
+                        print(f'current tcp: {tcp}')
+
+                        current_time = datetime.datetime.now()
+                        timestamp = current_time.strftime("%Y-%m-%d-%H-%M-%S")
+                        np.save(f'./chessboards/tcp_{timestamp}.npy', tcp)
+                    else:
+                        pass
+                except AttributeError:
+                    print(f'special key {key} is pressed')
+            def on_release(key):
+                if key.char == 'q':
+                    # Stop listener
+                    print('q released')
+                    return False
+
+            # Collect events until released
+            with keyboard.Listener(
+                    on_press=on_press,
+                    on_release=on_release) as listener:
+                listener.join()
+
+
+        shoot_thread = threading.Thread(target=button_detect)
+        shoot_thread.daemon = True # 设定为守护进程
+        shoot_thread.start()
+        self.cameras.global_camera.realtime_shoot()
 
 class ur5Robot:
     def __init__(self, ip='192.168.0.201', port=30004, FREQUENCY=500,
@@ -379,7 +543,7 @@ class ur5Robot:
                 time.sleep(1)
         watchdog_thread = threading.Thread(target=communicate)
         watchdog_thread.daemon = True # 守护进程
-        watchdog_thread.start() # 开启该进程
+        # watchdog_thread.start() # 开启该进程
 
 
 
