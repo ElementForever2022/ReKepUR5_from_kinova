@@ -8,7 +8,11 @@ from scipy.spatial.transform import Rotation as R
 
 import argparse
 from rekep.environment import R2D2Env
+
+#iksolver的导入
 from rekep.ik_solver import FrankaIKSolver
+from rekep.ik_solver_ur5 import UR5eIKSolver
+
 from rekep.subgoal_solver import SubgoalSolver
 from rekep.path_solver import PathSolver
 import rekep.transform_utils as T
@@ -76,10 +80,12 @@ class MainR2D2:
         self.robot_env = RobotEnv()
         self.env = R2D2Env(global_config['env'])
         
-        ik_solver = FrankaIKSolver(
+        #替换
+        ik_solver = UR5eIKSolver(
             reset_joint_pos= self.env.reset_joint_pos,
             world2robot_homo= self.env.world2robot_homo,
         )
+
         # initialize solvers
         self.subgoal_solver = SubgoalSolver(global_config['subgoal_solver'], ik_solver, self.env.reset_joint_pos)
         self.path_solver = PathSolver(global_config['path_solver'], ik_solver, self.env.reset_joint_pos)
