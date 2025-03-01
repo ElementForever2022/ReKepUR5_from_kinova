@@ -88,6 +88,9 @@ class Camera:
         self.align = rs.align(rs.stream.color)
         self.depth_scale = 0.001
         self.intrinsics = self.get_intrinsics()
+
+        self.robot_tcp = np.zeros(6) # 机器人的tcp传到这里
+
     def get_intrinsics(self):
         # D435i 的默认内参（你可以根据实际情况修改这些值）
         class RS_Intrinsics:
@@ -166,9 +169,13 @@ class Camera:
                     cv2.drawChessboardCorners(gray_3channel_demo, pattern_size, corners, ret)
 
                     # 在标出来棋盘的同时，把角点的序数标出来
+                    corner_x = round(corners[0][0][0])
+                    corner_y = round(corners[0][0][1])
+                    depth = depth_image[corner_x, corner_y]
                     for index_corner, corner in enumerate(corners):
                         corner_position = np.array(corner[0], dtype=np.int32)
-                        cv2.putText(gray_3channel_demo, f'{index_corner}',corner_position, font, font_scale/2, (0,0,255), thickness)
+                        if index_corner == 0:
+                            cv2.putText(gray_3channel_demo, f'{depth:.2f}',corner_position, font, font_scale, (0,0,255), thickness+1)
                         cv2.putText(screen, f'{index_corner}',corner_position, font, font_scale/2, (0,0,255), thickness)
 
 
@@ -181,16 +188,22 @@ class Camera:
                 position_line3 = (30, 80)  # (x, y)坐标
                 position_line4 = (30, 110)  # (x, y)坐标
                 position_line5 = (30, 140)
+                position_line6 = (30, 170)
                 
                 if ret:
                     color = (0,0,255) # 如果找到了棋盘，则字体为红色
                 thickness = 1
-                cv2.rectangle(screen, (position_line1[0],10), (screen.shape[1]//2,position_line5[-1]), (0,0,0), thickness=-1)
+                cv2.rectangle(screen, (position_line1[0],10), (screen.shape[1]//2,position_line6[-1]), (0,0,0), thickness=-1)
                 cv2.putText(screen,f'press {shoot_button} to save image', position_line1, font, font_scale, color, thickness)
                 cv2.putText(screen,f'press {quit_button} to quit', position_line2, font, font_scale, color, thickness)
                 cv2.putText(screen,f'Bi-value threshold: {threshold}, press p to increase and press m to decrease', position_line3, font, font_scale, color, thickness)
                 cv2.putText(screen,f'RGB resolution: {color_image.shape}', position_line4, font, font_scale, color, thickness)
                 cv2.putText(screen,f'depth resolution: {depth_image.shape}', position_line5, font, font_scale, color, thickness)
+                
+                demo_tcp = '[{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f}]'.format(
+                    self.robot_tcp[0],self.robot_tcp[1],self.robot_tcp[2],self.robot_tcp[3],self.robot_tcp[4],self.robot_tcp[5]
+                )
+                cv2.putText(screen,f'current tcp: {demo_tcp}, left_up:({corner_x},{corner_y})', position_line6, font, font_scale, color, thickness)
                 
                 # 实时展示画面
                 cv2.imshow('realtime camera', screen)
@@ -206,6 +219,7 @@ class Camera:
                         f.write(f'{timestamp}\n')
                     cv2.imwrite(f'{save_dir}rgb_{timestamp}.png', gray_3channel) # 要保存的是可以识别出棋盘的画面
                     np.save(f'{save_dir}depth_{timestamp}.npy', depth_image)
+                    np.save(f'{save_dir}tcp_{timestamp}.npy',self.robot_tcp)
                     print('Image saved!')
                 elif key_presseed & 0xff==ord('p'):
                     threshold += 1
@@ -239,6 +253,18 @@ class RobotEnv:
 
         self.global_camera = self.view2camera['global']
         self.wrist_camera = self.view2camera['wrist']
+
+        # 实时将tcp_pose更新
+        self.tcp_pose = np.zeros(6)
+        def update_tcp_thread():
+            while True:
+                current_tcp = self.robot.get_tcp_pose()
+                self.tcp_pose = current_tcp
+                self.global_camera.robot_tcp = current_tcp
+                time.sleep(0.1)
+        self.tcp_manager_thread = threading.Thread(target=update_tcp_thread)
+        self.tcp_manager_thread.daemon = True
+        self.tcp_manager_thread.start()
 
         #？？？pass干什么的？
         pass
@@ -449,10 +475,9 @@ class RobotEnv:
                     on_release=on_release) as listener:
                 listener.join()
 
-
         shoot_thread = threading.Thread(target=button_detect)
         shoot_thread.daemon = True # 设定为守护进程
-        shoot_thread.start()
+        # shoot_thread.start()
         self.cameras.global_camera.realtime_shoot()
 
 class ur5Robot:

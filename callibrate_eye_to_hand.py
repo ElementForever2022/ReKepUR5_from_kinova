@@ -4,6 +4,20 @@
 import cv2
 import numpy as np
 
+import tqdm
+
+import random
+
+# 预定义参数(可修改)
+XX, YY = 7, 7 # 棋盘格尺寸为8*8, 所以XX和YY要定义为7*7
+# L = 0.0164 # 棋盘格小格子的边长为0.0164, 单位:m
+L = 0.0128
+# L = 12.8 # mm
+# 打印预定义参数
+print('#'*20)
+print(f'size of chessboard(can be manually modified):\n\t{XX}x{YY}')
+print(f'length of unit squares(can be manually modified):\n\t{L}m')
+print('#'*20,'\n')
 
 def get_imgs_and_tcps(save_dir='./chessboards/'):
     """
@@ -49,15 +63,6 @@ def calc_Mcc(imgs):
     输出:
         rvecs:Tuple[np.array(rvec矩阵)], tvecs:Tuple[np.array(tvec矩阵形式列向量)]
     """
-    # 预定义参数(可修改)
-    XX, YY = 7, 7 # 棋盘格尺寸为8*8, 所以XX和YY要定义为7*7
-    # L = 0.0164 # 棋盘格小格子的边长为0.0164, 单位:m
-    L = 0.0128
-    # 打印预定义参数
-    print('#'*20)
-    print(f'size of chessboard(can be manually modified):\n\t{XX}x{YY}')
-    print(f'length of unit squares(can be manually modified):\n\t{L}m')
-    print('#'*20,'\n')
 
     # 准备计算图片中角点的坐标
     img_points = [] # 存储角点的像素坐标
@@ -111,7 +116,7 @@ def calc_Mtb(tcps):
     将机械臂位姿tcps转换为变换矩阵格式Mtb(不知道为什么cv2的输入需要的是Mtb而不是Mbt)
 
     输入:
-        tcps:List[tcp] tcp为机械臂位姿的np.array行向量格式,[x,y,z,rx,ry,rz]
+        tcps:List[tcp] tcp为机械臂位姿的np.array行向量格式,[x,y,z,rx,ry,rz], x,y,z in metre
     输出:
         R_tools:List[np.array 旋转矩阵], t_tools:List[np.array 平移矩阵]
     """
@@ -146,7 +151,7 @@ def calc_Mtb(tcps):
         将机械臂位姿(tcp)转换为旋转矩阵
 
         输入:
-            tcps:List[tcp] tcp为机械臂位姿的np.array行向量格式,[x,y,z,rx,ry,rz]
+            tcps:List[tcp] tcp为机械臂位姿的np.array行向量格式,[x,y,z,rx,ry,rz], x,y,z in metre
         输出:
             H:np.array H为某个[x,y,z,rx,ry,rz]对应的线性变换矩阵
         """
@@ -204,27 +209,201 @@ def calc_Mtb(tcps):
     # 返回旋转矩阵和平移矩阵的列表
     return R_tools, t_tools
 
-def main():
-    # 第一步: 读取图片和机械臂位姿. 准备计算
-    imgs, tcps = get_imgs_and_tcps()
-
+def imgs_tcps_to_Rt(imgs,tcps):
     # 第二步: 根据图片计算Mcc
     rvecs, tvecs = calc_Mcc(imgs)
+    # print('rvecs:', rvecs)
+    # print('tvecs:', tvecs)
 
     # 第三步: 根据那些机械臂位姿(tcps)计算Mtb(不知道为什么cv2要输入的是Mtb而不是Mbt)
     R_tools, t_tools = calc_Mtb(tcps)
+    # print('R_tools',R_tools)
+    # print('t_tools',t_tools)
 
     # 第四步: 根据上面得到的4组矩阵得到标定矩阵R和t
     R, t = cv2.calibrateHandEye(R_tools, t_tools, rvecs, tvecs, cv2.CALIB_HAND_EYE_TSAI)
 
     # 打印标定结果
-    print('#'*20)
-    print('callibration result:')
-    print('Rotation Matrix:')
-    print(R)
-    print('Shift Matrix:')
-    print(t)
-    print('#'*20)
+    # print('#'*20)
+    # print('callibration result:')
+    # print('Rotation Matrix:')
+    # print(R)
+    # print('Shift Matrix:')
+    # print(t)
+    # print('Centre distance:')
+    # print(np.sqrt(t.T@t))
+    # print('#'*20)
+
+    return R,t
+
+from scipy.spatial.transform import Rotation as Rot
+def Rt_to_xyzrxryrz(R,t):
+
+    # 提取平移矩阵
+    x,y,z = t[0,0],t[1,0],t[2,0]
+
+    # 创建旋转对象
+    rotation = Rot.from_matrix(R)
+
+    # 将旋转矩阵转换为欧拉角
+    # 'xyz'表示欧拉角的旋转顺序
+    euler_angles = rotation.as_euler('xyz', degrees=False)
+    rx,ry,rz = euler_angles
+
+    return x,y,z,rx,ry,rz
+
+def append_normt_xyzrxryrz(num_workers,num_samples, num_indices, imgs,tcps, progress_counter,lock_counter,lock_result, result_queue):
+    norm_ts = []
+    xyzrxryrzs = []
+    
+    for epoch in range(num_samples//num_workers):
+        indices = range(num_indices)
+        chosen_indices = random.sample(indices,35) # 从下标中抽10个元素, 不重复
+
+        # 按照下标得到对应的图片和tcp
+        chosen_imgs = [imgs[img_index] for img_index in chosen_indices]
+        chosen_tcps = [tcps[tcp_index] for tcp_index in chosen_indices]
+
+        # 代入计算得到转换矩阵
+        R,t = imgs_tcps_to_Rt(chosen_imgs, chosen_tcps)
+
+        # 计算偏移量的模并将其保存
+        norm_t = np.sqrt(t.T@t)[0,0]
+
+        # 计算各个分量的值
+        x,y,z,rx,ry,rz = Rt_to_xyzrxryrz(R,t)
+
+
+        
+        norm_ts.append(norm_t)
+        xyzrxryrzs.append([x,y,z,rx,ry,rz])
+
+        # 更新进度
+        lock_counter.acquire()
+        progress_counter.value += 1
+        lock_counter.release()
+
+    lock_result.acquire()
+    result_queue.put((norm_ts,xyzrxryrzs))
+    lock_result.release()
+
+
+def main():
+    # 第一步: 读取图片和机械臂位姿. 准备计算
+    imgs, tcps = get_imgs_and_tcps()
+
+    # 将图片和tcp随机抽取进行计算
+    num_indices = len(imgs)
+    norm_ts = [] # 抽取到的图片组得到的偏移量之模
+    xyzrxryrzs = [] # 抽取到的图片组得到的变换矩阵的各个变换参量的列表
+    num_samples = 400 # 抽样数量
+    filtered = np.array([True]*num_samples,dtype=np.bool_)
+
+    # 多进程计算
+    import multiprocessing as mp
+    num_workers = 400
+    # 使用Manager创建一个共享的进度计数器
+    manager = mp.Manager()
+    progress_counter = manager.Value('i', 0)
+    # 创建一个multiprocessing的lock
+    lock_counter = mp.Lock()
+    lock_result = mp.Lock()
+    # 创建一个队列用于存储结果
+    result_queue = mp.Queue()
+    # 创建计算工人
+    workers = [
+        mp.Process(target=append_normt_xyzrxryrz, args=
+                   (num_workers,num_samples, num_indices, imgs,tcps,progress_counter,lock_counter,lock_result,result_queue)
+        ) 
+        for _ in range(num_workers)
+    ]
+    
+    # 启动所有进程
+    for worker in workers:
+        worker.start()
+
+    # 使用tqdm显示进度条
+    with tqdm.tqdm(total=num_samples) as pbar:
+        while progress_counter.value < num_samples:
+            pbar.n = progress_counter.value
+            pbar.refresh()
+
+    # 等待所有进程完成
+    for worker in workers:
+        worker.join()
+    print('finished')
+
+    # 收集并整理数据
+    for _ in tqdm.tqdm(range(num_workers)):
+        result = result_queue.get()
+        norm_ts.extend(result[0])
+        xyzrxryrzs.extend(result[1])
+
+
+    # 将其作图
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+
+    plt.subplot(7,1,1)
+    norm_ts = np.array(norm_ts)
+    sns.histplot(norm_ts, bins=10, kde=True, color='blue')
+
+    mean = np.mean(norm_ts)
+    std_dev = np.std(norm_ts)
+
+    # 计算1-sigma位置
+    sigma_1_pos = mean + 1 * std_dev
+    sigma_1_neg = mean - 1 * std_dev
+
+    # 计算各个变量是否在1sigma之内
+    in_1sigma = [sigma_1_neg<=norm_t<=sigma_1_pos for norm_t in norm_ts]
+    in_1sigma = np.array(in_1sigma,dtype=np.bool_)
+    # 更新过滤器
+    filtered = np.logical_and(filtered, in_1sigma)
+
+    # 在2-sigma位置绘制红色虚线
+    plt.axvline(sigma_1_pos, color='red', linestyle='--', linewidth=2, label='+1σ')
+    plt.axvline(sigma_1_neg, color='red', linestyle='--', linewidth=2, label='-1σ')
+
+    # 设置图形标题和标签
+    plt.title('Distribution of Data')
+    plt.xlabel('Value')
+    plt.ylabel('Frequency')
+
+    # 对其他分量也计算分布
+    xyzrxryrzs = np.array(xyzrxryrzs)
+    for i in range(2,8):
+        attrs = xyzrxryrzs[:,i-2]
+
+        plt.subplot(7,1,i)
+        sns.histplot(attrs, bins=10, kde=True, color='blue')
+
+        mean = np.mean(attrs)
+        std_dev = np.std(attrs)
+
+        # 计算1-sigma位置
+        sigma_1_pos = mean + 1 * std_dev
+        sigma_1_neg = mean - 1 * std_dev
+
+        # 计算各个变量是否在2sigma之内
+        in_1sigma = [sigma_1_neg<=attr<=sigma_1_pos for attr in attrs]
+        in_1sigma = np.array(in_1sigma,dtype=np.bool_)
+        # 更新过滤器
+        filtered = np.logical_and(filtered, in_1sigma)
+
+
+        # 在2-sigma位置绘制红色虚线
+        plt.axvline(sigma_1_pos, color='red', linestyle='--', linewidth=2, label='+1σ')
+        plt.axvline(sigma_1_neg, color='red', linestyle='--', linewidth=2, label='-1σ')
+
+        # 设置图形标题和标签
+        plt.xlabel('Value')
+        plt.ylabel('Frequency')
+
+    print('num filtered:',filtered.astype(np.int32).sum())
+
+    # 显示图形
+    plt.show()
 
 
 if __name__ == '__main__':
