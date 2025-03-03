@@ -12,14 +12,20 @@ import random
 XX, YY = 7, 7 # 棋盘格尺寸为8*8, 所以XX和YY要定义为7*7
 # L = 0.0164 # 棋盘格小格子的边长为0.0164, 单位:m
 L = 0.0128
+save_dir = './chessboards/'
+filter_bound = 1
+num_samples = 2000 # 抽样数量
 # L = 12.8 # mm
 # 打印预定义参数
 print('#'*20)
 print(f'size of chessboard(can be manually modified):\n\t{XX}x{YY}')
 print(f'length of unit squares(can be manually modified):\n\t{L}m')
+print(f'save directory:\n\t{save_dir}')
+print(f'filter bound:\n\t±{filter_bound} sigma')
+print(f'number of samples:\n\t{num_samples}')
 print('#'*20,'\n')
 
-def get_imgs_and_tcps(save_dir='./chessboards/'):
+def get_imgs_and_tcps(save_dir=f'{save_dir}'):
     """
     通过读取save_dir下的timestamps, 读取全部图片和机械臂位姿(tcp), 便于后续利用
 
@@ -252,13 +258,46 @@ def Rt_to_xyzrxryrz(R,t):
 
     return x,y,z,rx,ry,rz
 
-def append_normt_xyzrxryrz(num_workers,num_samples, num_indices, imgs,tcps, progress_counter,lock_counter,lock_result, result_queue):
-    norm_ts = []
-    xyzrxryrzs = []
+def xyzrxryrz_to_Rt(x,y,z,rx,ry,rz):
+    """
+    将三维偏移量和欧拉旋转角转换为变换矩阵
+    """
+    def euler_angles_to_rotation_matrix(rx, ry, rz):
+        """
+        将欧拉角旋转格式(rx,ry,rz)转换为旋转矩阵格式
+
+        输入:
+            rx,ry,rz 欧拉角旋转
+        输出:
+            R 旋转矩阵
+        """
+        # 计算旋转矩阵
+        Rx = np.array([[1, 0, 0],
+                    [0, np.cos(rx), -np.sin(rx)],
+                    [0, np.sin(rx), np.cos(rx)]])
+
+        Ry = np.array([[np.cos(ry), 0, np.sin(ry)],
+                    [0, 1, 0],
+                    [-np.sin(ry), 0, np.cos(ry)]])
+
+        Rz = np.array([[np.cos(rz), -np.sin(rz), 0],
+                    [np.sin(rz), np.cos(rz), 0],
+                    [0, 0, 1]])
+
+        R = Rz@Ry@Rx  # 先绕 x轴旋转 再绕y轴旋转  最后绕z轴旋转
+        return R
+
+    t = np.array([[x],[y],[z]],dtype=np.float32)
+    R = euler_angles_to_rotation_matrix(rx,ry,rz)
+
+    return R,t
+
+
+def append_normt_xyzrxryrz(num_workers,num_samples, num_indices, imgs,tcps, progress_counter,lock_counter, global_norm_ts, global_xyzrxryrzs):
     
     for epoch in range(num_samples//num_workers):
         indices = range(num_indices)
-        chosen_indices = random.sample(indices,35) # 从下标中抽10个元素, 不重复
+        chosen_indices = random.sample(indices,35) # 从下标中抽35个元素, 不重复
 
         # 按照下标得到对应的图片和tcp
         chosen_imgs = [imgs[img_index] for img_index in chosen_indices]
@@ -275,17 +314,14 @@ def append_normt_xyzrxryrz(num_workers,num_samples, num_indices, imgs,tcps, prog
 
 
         
-        norm_ts.append(norm_t)
-        xyzrxryrzs.append([x,y,z,rx,ry,rz])
+        global_norm_ts.append(norm_t)
+        global_xyzrxryrzs.append([x,y,z,rx,ry,rz])
 
         # 更新进度
         lock_counter.acquire()
         progress_counter.value += 1
         lock_counter.release()
 
-    lock_result.acquire()
-    result_queue.put((norm_ts,xyzrxryrzs))
-    lock_result.release()
 
 
 def main():
@@ -294,26 +330,23 @@ def main():
 
     # 将图片和tcp随机抽取进行计算
     num_indices = len(imgs)
-    norm_ts = [] # 抽取到的图片组得到的偏移量之模
-    xyzrxryrzs = [] # 抽取到的图片组得到的变换矩阵的各个变换参量的列表
-    num_samples = 400 # 抽样数量
     filtered = np.array([True]*num_samples,dtype=np.bool_)
 
     # 多进程计算
     import multiprocessing as mp
-    num_workers = 400
+    num_workers = 100
     # 使用Manager创建一个共享的进度计数器
     manager = mp.Manager()
     progress_counter = manager.Value('i', 0)
+
+    norm_ts = manager.list() # 抽取到的图片组得到的偏移量之模
+    xyzrxryrzs = manager.list() # 抽取到的图片组得到的变换矩阵的各个变换参量的列表
     # 创建一个multiprocessing的lock
     lock_counter = mp.Lock()
-    lock_result = mp.Lock()
-    # 创建一个队列用于存储结果
-    result_queue = mp.Queue()
     # 创建计算工人
     workers = [
         mp.Process(target=append_normt_xyzrxryrz, args=
-                   (num_workers,num_samples, num_indices, imgs,tcps,progress_counter,lock_counter,lock_result,result_queue)
+                   (num_workers,num_samples, num_indices, imgs,tcps,progress_counter,lock_counter, norm_ts, xyzrxryrzs)
         ) 
         for _ in range(num_workers)
     ]
@@ -331,13 +364,11 @@ def main():
     # 等待所有进程完成
     for worker in workers:
         worker.join()
-    print('finished')
+    print('calculation finished')
 
     # 收集并整理数据
-    for _ in tqdm.tqdm(range(num_workers)):
-        result = result_queue.get()
-        norm_ts.extend(result[0])
-        xyzrxryrzs.extend(result[1])
+    norm_ts = list(norm_ts) # 将其从共享列表转换为普通列表
+    xyzrxryrzs = list(xyzrxryrzs)
 
 
     # 将其作图
@@ -351,19 +382,19 @@ def main():
     mean = np.mean(norm_ts)
     std_dev = np.std(norm_ts)
 
-    # 计算1-sigma位置
-    sigma_1_pos = mean + 1 * std_dev
-    sigma_1_neg = mean - 1 * std_dev
+    # 计算sigma位置
+    sigma_pos = mean + filter_bound * std_dev
+    sigma_neg = mean - filter_bound * std_dev
 
-    # 计算各个变量是否在1sigma之内
-    in_1sigma = [sigma_1_neg<=norm_t<=sigma_1_pos for norm_t in norm_ts]
-    in_1sigma = np.array(in_1sigma,dtype=np.bool_)
+    # 计算各个变量是否在sigma之内
+    in_sigma = [sigma_neg<=norm_t<=sigma_pos for norm_t in norm_ts]
+    in_sigma = np.array(in_sigma,dtype=np.bool_)
     # 更新过滤器
-    filtered = np.logical_and(filtered, in_1sigma)
+    filtered = np.logical_and(filtered, in_sigma)
 
     # 在2-sigma位置绘制红色虚线
-    plt.axvline(sigma_1_pos, color='red', linestyle='--', linewidth=2, label='+1σ')
-    plt.axvline(sigma_1_neg, color='red', linestyle='--', linewidth=2, label='-1σ')
+    plt.axvline(sigma_pos, color='red', linestyle='--', linewidth=2, label=f'+{filter_bound:.1f}σ')
+    plt.axvline(sigma_neg, color='red', linestyle='--', linewidth=2, label=f'-{filter_bound:.1f}σ')
 
     # 设置图形标题和标签
     plt.title('Distribution of Data')
@@ -381,20 +412,20 @@ def main():
         mean = np.mean(attrs)
         std_dev = np.std(attrs)
 
-        # 计算1-sigma位置
-        sigma_1_pos = mean + 1 * std_dev
-        sigma_1_neg = mean - 1 * std_dev
+        # 计算sigma位置
+        sigma_pos = mean + filter_bound * std_dev
+        sigma_neg = mean - filter_bound * std_dev
 
-        # 计算各个变量是否在2sigma之内
-        in_1sigma = [sigma_1_neg<=attr<=sigma_1_pos for attr in attrs]
-        in_1sigma = np.array(in_1sigma,dtype=np.bool_)
+        # 计算各个变量是否在sigma之内
+        in_sigma = [sigma_neg<=attr<=sigma_pos for attr in attrs]
+        in_sigma = np.array(in_sigma,dtype=np.bool_)
         # 更新过滤器
-        filtered = np.logical_and(filtered, in_1sigma)
+        filtered = np.logical_and(filtered, in_sigma)
 
 
         # 在2-sigma位置绘制红色虚线
-        plt.axvline(sigma_1_pos, color='red', linestyle='--', linewidth=2, label='+1σ')
-        plt.axvline(sigma_1_neg, color='red', linestyle='--', linewidth=2, label='-1σ')
+        plt.axvline(sigma_pos, color='red', linestyle='--', linewidth=2, label=f'+{filter_bound:.2f}σ')
+        plt.axvline(sigma_neg, color='red', linestyle='--', linewidth=2, label=f'-{filter_bound:.2f}σ')
 
         # 设置图形标题和标签
         plt.xlabel('Value')
@@ -405,6 +436,35 @@ def main():
     # 显示图形
     plt.show()
 
+    # 将过滤出的样本再次计算平均值, 最终的变换矩阵取这些平均值
+    x_average = np.mean(xyzrxryrzs[:,0][filtered])
+    y_average = np.mean(xyzrxryrzs[:,1][filtered])
+    z_average = np.mean(xyzrxryrzs[:,2][filtered])
+    rx_average = np.mean(xyzrxryrzs[:,3][filtered])
+    ry_average = np.mean(xyzrxryrzs[:,4][filtered])
+    rz_average = np.mean(xyzrxryrzs[:,5][filtered])
+    R,t = xyzrxryrz_to_Rt(x_average,y_average,z_average,rx_average,ry_average,rz_average)
+
+    # 计算其偏移量之模
+    norm_t_final = np.sqrt(x_average**2+y_average**2+z_average**2)
+    print(f'norm of t:\n{norm_t_final:.4f}m')
+    # 将旋转矩阵和偏移矩阵拼接为变换矩阵
+    callibration_matrix = np.vstack([np.hstack([R,t]),np.array([0,0,0,1])])
+    print('callibration matrix:')
+    print(f'{callibration_matrix}')
+    # 将变换矩阵改成适合json的格式
+    print('json form:')
+    for row_index in range(4):
+        row = callibration_matrix[row_index,:]
+        print(list(row),end='')
+        if row_index<3:
+            print(',')
+        else:
+            print()
+    # 将变换矩阵保存起来
+    callibration_matrix_save_dir = f'{save_dir}callibration_matrix.npy'
+    np.save(callibration_matrix_save_dir,callibration_matrix)
+    print(f'callibration matrix saved to: {callibration_matrix_save_dir}')
 
 if __name__ == '__main__':
     main()

@@ -159,9 +159,12 @@ class Camera:
                 gray[gray>=threshold] = 255
                 # 将灰度图转换回彩色图(看起来还是黑白的)
                 gray_3channel = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+                # gray_3channel = color_image.copy()
                 gray_3channel_demo = gray_3channel.copy()
                 
                 pattern_size = (7,7) # 棋盘格大小是8*8
+                # pattern_size = (11,8)
+                corner_x, corner_y = 0,0
                 ret, corners = cv2.findChessboardCornersSB(gray_3channel, pattern_size, None) # 实时找到画面8*8的棋盘格
                 if ret:
                     # 如果检测到棋盘，把棋盘标出来
@@ -171,7 +174,10 @@ class Camera:
                     # 在标出来棋盘的同时，把角点的序数标出来
                     corner_x = round(corners[0][0][0])
                     corner_y = round(corners[0][0][1])
-                    depth = depth_image[corner_x, corner_y]
+                    try:
+                        depth = depth_image[corner_x, corner_y]
+                    except IndexError:
+                        depth = -1
                     for index_corner, corner in enumerate(corners):
                         corner_position = np.array(corner[0], dtype=np.int32)
                         if index_corner == 0:
@@ -261,6 +267,7 @@ class RobotEnv:
                 current_tcp = self.robot.get_tcp_pose()
                 self.tcp_pose = current_tcp
                 self.global_camera.robot_tcp = current_tcp
+                self.wrist_camera.robot_tcp = current_tcp
                 time.sleep(0.1)
         self.tcp_manager_thread = threading.Thread(target=update_tcp_thread)
         self.tcp_manager_thread.daemon = True
@@ -478,7 +485,8 @@ class RobotEnv:
         shoot_thread = threading.Thread(target=button_detect)
         shoot_thread.daemon = True # 设定为守护进程
         # shoot_thread.start()
-        self.cameras.global_camera.realtime_shoot()
+        # self.cameras.global_camera.realtime_shoot()
+        self.cameras.wrist_camera.realtime_shoot()
 
 class ur5Robot:
     def __init__(self, ip='192.168.0.201', port=30004, FREQUENCY=500,
