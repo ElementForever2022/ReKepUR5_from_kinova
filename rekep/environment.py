@@ -133,7 +133,7 @@ class R2D2Env:
         self.interpolate_rot_step_size = self.config['interpolate_rot_step_size']
         self.robot_state_path =  Path('./robot_state.json')
         
-        self.robot = RobotController()
+        # self.robot = RobotController() # TODO 不知道有什么用处
         self.reset_joint_pos = np.array([0.5, 0, 0.5, 1, 0, 0])
         # self.reset_joint_pos = np.array([0.5, 0, 0.5, 1, 0, 0, 0])  # Default home position
         self.gripper_state = 1.0  # 1.0 is open, 0.0 is closed
@@ -165,6 +165,7 @@ class R2D2Env:
     
     def get_ee_pose(self,from_robot=False):
         """Get end-effector pose"""
+        print('getting ee pose from R2D2Env in environment.py')
         if from_robot:
             print(f"Getting EE pose from robot: {self.ee_pose}")
             return self.ee_pose # TODO 

@@ -411,9 +411,9 @@ def main():
     robot_env = robotEnv.RobotEnv()
     robot_env.realtime_shoot()
 
-    callibrator = Callibrator()
-    Mt = callibrator.callbrate()
-    print(Mt)
+    # callibrator = Callibrator()
+    # Mt = callibrator.callbrate()
+    # print(Mt)
 
 if __name__ == '__main__':
     main()

@@ -207,6 +207,7 @@ class SubgoalSolver:
             - result (scipy.optimize.OptimizeResult): optimization result.
             - debug_dict (dict): debug information.
         """
+        print(f'from scratch={from_scratch}')
         # downsample collision points
         if collision_points is not None and collision_points.shape[0] > self.config['max_collision_points']:
             collision_points = farthest_point_sampling(collision_points, self.config['max_collision_points'])

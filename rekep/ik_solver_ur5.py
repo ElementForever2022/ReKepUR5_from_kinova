@@ -352,8 +352,8 @@ class UR5eIKSolver:
             np.ndarray: 4x4 homogeneous transformation matrix in robot base frame
         """
         # Add debug prints
-        print("Input target pose:\n", target_pose_homo)
-        print("World to robot transform:\n", self.world2robot_homo)
+        # print("Input target pose:\n", target_pose_homo)
+        # print("World to robot transform:\n", self.world2robot_homo)
         
         # Check matrix shapes
         assert target_pose_homo.shape == (4, 4), f"Expected target_pose_homo shape (4,4), got {target_pose_homo.shape}"
@@ -362,7 +362,7 @@ class UR5eIKSolver:
         # Perform transformation
         robot_pose = np.dot(self.world2robot_homo, target_pose_homo)
         
-        print("Output robot pose:\n", robot_pose)
+        # print("Output robot pose:\n", robot_pose)
         return robot_pose
 
 # Unit tests
