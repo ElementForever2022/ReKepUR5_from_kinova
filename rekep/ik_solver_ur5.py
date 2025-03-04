@@ -42,15 +42,28 @@ class UR5eIKSolver:
         #     7: [0.088,  np.pi/2,  0.107,  0],  # Joint 7 (end effector)
         # }
 
+        #自己找的
         #从官网获得的UR5e的DH参数，直接调换列顺序获得。可行？
         # [a, alpha, d, theta]
+        # self.dh_params = {
+        #     1: [0,         np.pi/2, 0.1625, 0],
+        #     2: [-0.425,    0,       0,      0],
+        #     3: [-0.3922,   0,       0,      0],
+        #     4: [0,         np.pi/2, 0.1333, 0],
+        #     5: [0,         -np.pi/2,0.0997, 0],
+        #     6: [0,         0,       0.0996, 0],
+        # }
+
+        #xjc的
         self.dh_params = {
-            1: [0,         np.pi/2, 0.1625, 0],
-            2: [-0.425,    0,       0,      0],
-            3: [-0.3922,   0,       0,      0],
-            4: [0,         np.pi/2, 0.1333, 0],
-            5: [0,         -np.pi/2,0.0997, 0],
-            6: [0,         0,       0.0996, 0],
+            # Standard DH parameters for UR5
+            # [a, alpha, d, theta]
+            1: [0,      np.pi/2,  0.089159, 0],  # Joint 1
+            2: [-0.425, 0,        0,        0],  # Joint 2
+            3: [-0.39225, 0,      0,        0],  # Joint 3
+            4: [0,      np.pi/2,  0.10915,  0],  # Joint 4
+            5: [0,      -np.pi/2, 0.09465,  0],  # Joint 5
+            6: [0,      0,        0.0823,   0],  # Joint 6 (end effector)
         }
 
         #franka的
@@ -60,12 +73,19 @@ class UR5eIKSolver:
         #     'upper': np.array([2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973])
         # }
 
+        #
         # Joint limits (in radians) for UR5e
         #看起来范围有点大
+        # self.joint_limits = {
+        #     'lower': np.array([-6.2832, -2.0944, -6.2832, -6.2832, -6.2832, -6.2832]),
+        #     'upper': np.array([6.2832, 2.0944, 6.2832, 6.2832, 6.2832, 6.2832])
+        # }
+
+        #xjc ver
         self.joint_limits = {
-            'lower': np.array([-6.2832, -2.0944, -6.2832, -6.2832, -6.2832, -6.2832]),
-            'upper': np.array([6.2832, 2.0944, 6.2832, 6.2832, 6.2832, 6.2832])
-        }
+            'lower': np.array([-2*np.pi, -2*np.pi, -2*np.pi, -2*np.pi, -2*np.pi, -2*np.pi]),
+            'upper': np.array([2*np.pi, 2*np.pi, 2*np.pi, 2*np.pi, 2*np.pi, 2*np.pi])
+        }        
         
         #初始的各个关节位置，在配置文件中定义
         self.reset_joint_pos = reset_joint_pos
@@ -90,6 +110,7 @@ class UR5eIKSolver:
             前3×3部分（旋转部分）必须正交（即R⋅RT≈I）。
             第4行必须等于 [0,0,0,1]。
         """
+
         if not isinstance(pose, np.ndarray):
             raise TypeError(f"Pose must be numpy array, got {type(pose)}")
             
@@ -199,17 +220,18 @@ class UR5eIKSolver:
         实现了基于阻尼最小二乘（damped least squares）算法的数值逆运动学求解
         """
         current_joints = initial_joints.copy()
-        # print("initial_joints: ",initial_joints)
-        # print("initial_eef_pose:",self.forward_kinematics(current_joints))
+
+        # print("（_numerical_ik）initial_joints: ",initial_joints)
+        # print("（_numerical_ik）initial_eef_pose:",self.forward_kinematics(current_joints))
         
         for i in range(max_iter):
             current_pose = self.forward_kinematics(current_joints)
 
             #检查
-            # print("iter:",i)
-            # print("current_joints:",current_joints)
-            # print("current_eef_pose:",current_pose)
-            # print("target_eef_pose::",target_pose)
+            # print("（_numerical_ik）iter:",i)
+            # print("（_numerical_ik）current_joints:",current_joints)
+            # print("（_numerical_ik）current_eef_pose:",current_pose)
+            # print("（_numerical_ik）target_eef_pose::",target_pose)
 
             
             # Calculate pose error
@@ -221,10 +243,10 @@ class UR5eIKSolver:
             error = np.concatenate([pos_error, rot_error])
 
             #检查
-            # print("error:",error)
-            # print("error norm:",np.linalg.norm(error))
-            # print("tor:",tol)
-            # print("if end:",np.linalg.norm(error) < tol)
+            # print("（_numerical_ik）error:",error)
+            # print("（_numerical_ik）error norm:",np.linalg.norm(error))
+            # print("（_numerical_ik）tor:",tol)
+            # print("（_numerical_ik）if end:",np.linalg.norm(error) < tol)
 
             
             if np.linalg.norm(error) < tol:
@@ -233,16 +255,25 @@ class UR5eIKSolver:
             # Calculate Jacobian
             J = self._jacobian(current_joints)
             
+            # print("（_numerical_ik）finish:_jacobian(current_joints)")
+
             # Damped least squares
             lambda_ = 0.5
             delta_theta = J.T @ np.linalg.inv(J @ J.T + lambda_**2 * np.eye(6)) @ error
             
+            # print("（_numerical_ik）finish:delta_theta")
+            # print("（_numerical_ik）(cilp)current_joints:",current_joints)
+            # print("（_numerical_ik）(cilp)delta_theta:",delta_theta)
+
             # Update joints with limits
             current_joints = np.clip(
                 current_joints + delta_theta,
                 self.joint_limits['lower'],
                 self.joint_limits['upper']
             )
+
+            # print("（_numerical_ik）finish:clip")
+
             
         return False, current_joints, np.linalg.norm(pos_error), np.linalg.norm(rot_error)
 
@@ -251,16 +282,24 @@ class UR5eIKSolver:
              orientation_tolerance=0.001,
              max_iterations=150,
              initial_joint_pos=None):
-        """Solve IK for Franka robot"""
+        """Solve IK for UR5 robot"""
         try:
+            print("(solve)target_pose_homo:",target_pose_homo)
+
             # Validate input pose
             self._validate_transform(target_pose_homo)
             
+            # print("(solve)finish:validate_transform(target_pose_homo)")
+
             # Transform target pose to robot base frame
             robot_pose = self.transform_pose(target_pose_homo)
             
-            # Validate transformed pose
-            self._validate_transform(robot_pose)
+            # print("(solve)finish:robot_pose = self.transform_pose(target_pose_homo)")
+
+            # # Validate transformed pose
+            # self._validate_transform()
+            # print("finish:Validate transformed pose:self._validate_transform())")
+
             
             #下面：预设的起始点；上面：获取当前位姿作为起始点
             ###################################################
@@ -275,6 +314,8 @@ class UR5eIKSolver:
             initial_joint_pos = self.reset_joint_pos
             ###################################################
 
+            print("(solve)robot_pose:",robot_pose)
+            print("(solve)initial_joint_pos:",initial_joint_pos)
 
             # Solve IK
             success, joint_positions, pos_error, rot_error = self._numerical_ik(
@@ -283,6 +324,8 @@ class UR5eIKSolver:
                 max_iter=max_iterations,
                 tol=min(position_tolerance, orientation_tolerance)
             )
+
+            # print("(solve)finish:_numerical_ik")
             
             #TODO:实现范围检查
             #下面:直接返回：上面：增加范围检查
@@ -376,6 +419,8 @@ def test_UR5e_ik():
     reset_joint_pos = state["joint_info"]["reset_joint_pos"]
     ###
 
+    print("（test）reset_joint_pos:",reset_joint_pos)
+
     # Create solver
     solver = UR5eIKSolver(reset_joint_pos)
     
@@ -391,18 +436,17 @@ def test_UR5e_ik():
     #给定末端执行器的目标位姿，获得各个关节的角度
     #末端执行器被平移到(，，)的位置（保持无旋转）
     target = np.array([
-        [1, 0, 0, -0.315],
-        [0, 1, 0, -0.139],
-        [0, 0, 1, 0.348],
+        [1, 0, 0, -0.413],
+        [0, 1, 0, 0.089],
+        [0, 0, 1, 0.543],
         [0, 0, 0, 1.0]
     ])
     result = solver.solve(target,max_iterations=300)
 
-    print(result.cspace_position)    
-    print(result.num_descents)
-    print(result.rotation_error)
-    print(result.position_error)
-
+    print("（test） cspace_position:",result.cspace_position)    
+    print("（test） num_descents:",result.num_descents)
+    print("（test） rotation_error:",result.rotation_error)
+    print("（test） position_error:",result.position_error)
 
 
     #测试时注释

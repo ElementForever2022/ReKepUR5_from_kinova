@@ -8,16 +8,10 @@ from scipy.spatial.transform import Rotation as R
 
 import argparse
 from rekep.environment import R2D2Env
-<<<<<<< HEAD
 
-#iksolver的导入
 from rekep.ik_solver import FrankaIKSolver
 from rekep.ik_solver_ur5 import UR5eIKSolver
 
-=======
-# from rekep.ik_solver import FrankaIKSolver
-from rekep.ik_solver_ur5 import UR5eIKSolver
->>>>>>> pc2
 from rekep.subgoal_solver import SubgoalSolver
 from rekep.path_solver import PathSolver
 import rekep.transform_utils as T
