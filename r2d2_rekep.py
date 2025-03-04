@@ -8,7 +8,8 @@ from scipy.spatial.transform import Rotation as R
 
 import argparse
 from rekep.environment import R2D2Env
-from rekep.ik_solver import FrankaIKSolver
+# from rekep.ik_solver import FrankaIKSolver
+from rekep.ik_solver_ur5 import UR5eIKSolver
 from rekep.subgoal_solver import SubgoalSolver
 from rekep.path_solver import PathSolver
 import rekep.transform_utils as T
@@ -76,7 +77,11 @@ class MainR2D2:
         self.robot_env = RobotEnv()
         self.env = R2D2Env(global_config['env'])
         
-        ik_solver = FrankaIKSolver(
+        # ik_solver = FrankaIKSolver(
+        #     reset_joint_pos= self.env.reset_joint_pos,
+        #     world2robot_homo= self.env.world2robot_homo,
+        # )
+        ik_solver = UR5eIKSolver(
             reset_joint_pos= self.env.reset_joint_pos,
             world2robot_homo= self.env.world2robot_homo,
         )
@@ -136,8 +141,9 @@ class MainR2D2:
             json.dump(robot_state, f, indent=4)
                 # Get current state
         while int(stage) <= self.program_info['num_stages']:
-            scene_keypoints = self.env.get_keypoint_positions()
-            self.keypoints = np.concatenate([[self.env.get_ee_pos()], scene_keypoints], axis=0)
+            # scene_keypoints = self.env.get_keypoint_positions()
+            self.keypoints = np.concatenate([[self.env.get_ee_pos()], # 加一个方括号是为了把1D的array升成2D
+                                             self.env.get_keypoint_positions()], axis=0)
             print(f"stage {int(stage)}: keypoints{self.keypoints}")
             # self.curr_ee_pose = self.env.get_ee_pose()  # TODO check, may be constant? 
             # self.curr_joint_pos = self.env.get_arm_joint_positions() 
@@ -385,7 +391,8 @@ if __name__ == "__main__":
     # newest_rekep_dir = "//home//kinova//Rekep4Real//vlm_query//2025-01-21_22-27-34_help_me_take_that_bottle_of_water"
     # newest_rekep_dir = '/home/ur5/rekep/Rekep4Real/vlm_query/2025-01-21_22-27-34_help_me_take_that_bottle_of_water'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-25_15-47-47_help_me_take_the_cube'
-    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-26_10-35-40_help_me_take_the_cube'
+    # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-26_10-35-40_help_me_take_the_cube'
+    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-03_16-02-45_help_me_take_the_block'
 
     main = MainR2D2(visualize=args.visualize)
     main.perform_task(instruction=args.instruction, rekep_program_dir=newest_rekep_dir)
