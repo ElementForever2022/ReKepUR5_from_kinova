@@ -49,24 +49,24 @@ class Cameras:
         # 将view映射到serial number
         self.view2serial_number = {
             'global': connected_devices[0],
-            'wrist': connected_devices[1]
+            # 'wrist': connected_devices[1]
         }
         # 将serial number映射到view
         self.serial_number2view = {
             connected_devices[0]: 'global',
-            connected_devices[1]: 'wrist'
+            # connected_devices[1]: 'wrist'
         }
         
         # initialize cameras
         print('Initializing cameras...')
         self.global_camera = Camera(self.view2serial_number['global'])
-        self.wrist_camera = Camera(self.view2serial_number['wrist'])
+        # self.wrist_camera = Camera(self.view2serial_number['wrist'])
         time.sleep(2.5) # 等待相机初始化完成
         print('done')
         # 将view映射到camera对象
         self.view2camera = {
             'global': self.global_camera,
-            'wrist': self.wrist_camera
+            # 'wrist': self.wrist_camera
         }
 
 # camera class
@@ -239,7 +239,7 @@ class Camera:
 
 
 class RobotEnv:
-    def __init__(self, ip='192.168.0.201', port=30004):
+    def __init__(self, ip='192.168.1.201', port=30004):
         
          # 初始化真实机械臂环境
 
@@ -258,7 +258,7 @@ class RobotEnv:
         self.view2camera = self.cameras.view2camera # 将view映射到camera对象
 
         self.global_camera = self.view2camera['global']
-        self.wrist_camera = self.view2camera['wrist']
+        # self.wrist_camera = self.view2camera['wrist']
 
         # 实时将tcp_pose更新
         self.tcp_pose = np.zeros(6)
@@ -267,7 +267,7 @@ class RobotEnv:
                 current_tcp = self.robot.get_tcp_pose()
                 self.tcp_pose = current_tcp
                 self.global_camera.robot_tcp = current_tcp
-                self.wrist_camera.robot_tcp = current_tcp
+                # self.wrist_camera.robot_tcp = current_tcp
                 time.sleep(0.1)
         self.tcp_manager_thread = threading.Thread(target=update_tcp_thread)
         self.tcp_manager_thread.daemon = True
@@ -489,7 +489,7 @@ class RobotEnv:
         # self.cameras.wrist_camera.realtime_shoot()
 
 class ur5Robot:
-    def __init__(self, ip='192.168.0.201', port=30004, FREQUENCY=500,
+    def __init__(self, ip='192.168.1.201', port=30004, FREQUENCY=500,
                  config_filename='Servoj_RTDE_UR5/control_loop_configuration.xml'):
         # UR5机械臂的基本参数
 
