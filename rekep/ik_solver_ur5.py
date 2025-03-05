@@ -284,7 +284,7 @@ class UR5eIKSolver:
              initial_joint_pos=None):
         """Solve IK for UR5 robot"""
         try:
-            print("(solve)target_pose_homo:",target_pose_homo)
+            # print("(solve)target_pose_homo:",target_pose_homo)
 
             # Validate input pose
             self._validate_transform(target_pose_homo)
@@ -314,8 +314,8 @@ class UR5eIKSolver:
             initial_joint_pos = self.reset_joint_pos
             ###################################################
 
-            print("(solve)robot_pose:",robot_pose)
-            print("(solve)initial_joint_pos:",initial_joint_pos)
+            # print("(solve)robot_pose:",robot_pose)
+            # print("(solve)initial_joint_pos:",initial_joint_pos)
 
             # Solve IK
             success, joint_positions, pos_error, rot_error = self._numerical_ik(

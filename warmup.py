@@ -13,7 +13,7 @@ def list_to_setp(setp, list):
     return setp
 
 #参数
-ROBOT_HOST = '192.168.0.201'
+ROBOT_HOST = '192.168.1.201'
 ROBOT_PORT = 30004
 config_filename = '/home/ur5/rekep/ReKepUR5_from_kinova/Servoj_RTDE_UR5/control_loop_configuration.xml'
 FREQUENCY = 500

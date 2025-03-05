@@ -258,7 +258,7 @@ class MainR2D2:
             "theta_y": target_pos[4],
             "theta_z": target_pos[5]
         }
-        print(f'kinova move to {target_pos}')
+        # print(f'kinova move to {target_pos}')
         # self.kinova.move_to_tool_position(target_pos)
         # self.robot_env.step(target_pos,3)
         self.robot_env.move_to_ee_pos(target_pos)
@@ -304,8 +304,8 @@ class MainR2D2:
     @timer_decorator
     def _get_next_path(self, next_subgoal, from_scratch):
         # pdb.set_trace()
-        print(f"Start solving path from {self.curr_ee_pose} to {next_subgoal}")
-        print(f'curr joint pos:{self.curr_joint_pos}')
+        # print(f"Start solving path from {self.curr_ee_pose} to {next_subgoal}")
+        # print(f'curr joint pos:{self.curr_joint_pos}')
         path_constraints = self.constraint_fns[self.stage]['path']
         path, debug_dict = self.path_solver.solve(self.curr_ee_pose,
                                                     next_subgoal,
