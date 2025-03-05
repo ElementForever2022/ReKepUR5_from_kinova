@@ -1,3 +1,5 @@
+#提供方法被调用
+
 import numpy as np
 
 def rotation_matrix_x(theta_x_deg):
@@ -15,7 +17,11 @@ def rotation_matrix_y(theta_y_deg):
                      [-np.sin(theta_y), 0, np.cos(theta_y)]])
 
 def rotation_matrix_z(theta_z_deg):
-    """绕 Z 轴旋转"""
+    """
+    绕 Z 轴旋转
+    :param theta_z_deg: 需要绕 Z 轴旋转的角度（单位：度）
+    :return: 一个 3×3 的旋转矩阵（numpy.ndarray 类型）
+    """ 
     theta_z = np.radians(theta_z_deg)  # 转换为弧度
     return np.array([[np.cos(theta_z), -np.sin(theta_z), 0],
                      [np.sin(theta_z), np.cos(theta_z), 0],
@@ -31,11 +37,13 @@ def combined_rotation_matrix(theta_x_deg, theta_y_deg, theta_z_deg):
     R = Rz @ Ry @ Rx
     return R
 
+
+#以下是测试代码，不被调用
+################
 # 测试：绕 X 轴 -90度，Y 轴 90度，Z 轴 45度的合成旋转
 # theta_x = 73
 # theta_y = 90
 theta_z = -90
-
 # R = combined_rotation_matrix(theta_x, theta_y, theta_z)
 # print("合成旋转矩阵：")
 # print(R)

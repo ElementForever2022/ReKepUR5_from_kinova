@@ -1,3 +1,5 @@
+#首先运行这个，获取多张图像
+
 import sys
 import numpy as np
 
@@ -10,15 +12,20 @@ import os
 # from sensor_msgs.msg import Image
 
 class Camera:
-    def __init__(self, width=1280, height=720, fps=30):  # 图片格式可根据程序需要进行更改
+    def __init__(self, width=640, height=480, fps=30):  
+        # 图片格式根据项目要求的输入图片分辨率进行更改
+
         self.width = width
         self.height = height
         self.pipeline = rs.pipeline()
         self.config = rs.config()
         self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, fps)
         self.config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, fps)
+        
+        # 红外图 不需要
         # self.config.enable_stream(rs.stream.infrared, 1, self.width, self.height, rs.format.y8, fps)
         # self.config.enable_stream(rs.stream.infrared, 2, self.width, self.height, rs.format.y8, fps)
+        
         self.pipeline.start(self.config)  # 获取图像视频流
 
         print("start camera...")
@@ -28,6 +35,7 @@ class Camera:
         frames = self.pipeline.wait_for_frames()  # 获得frame (包括彩色，深度图)
         colorizer = rs.colorizer()  # 创建伪彩色图对象
 
+        # 滤波之类的提高棋盘格识别精度的图像处理方法
         # decimation = rs.decimation_filter()
         # spatial = rs.spatial_filter()
         # temporal = rs.temporal_filter()
@@ -47,6 +55,10 @@ class Camera:
         depthx_image = np.asanyarray(aligned_depth_frame.get_data())  # 对其的原始深度图
         colorizer_depth = np.asanyarray(colorizer.colorize(aligned_depth_frame).get_data())
 
+        #color_image：纯彩色图
+        #depthx_image：对应原始深度数据（还没伪彩）
+        #colorizer_depth：伪彩色深度图，可用于可视化
+        #aligned_depth_frame：RealSense 提供的深度帧对象，可用于后续获取内参、单位等
         return color_image, depthx_image, colorizer_depth, aligned_depth_frame
 
     def release(self):
@@ -56,8 +68,10 @@ class Camera:
 def main():
     # rospy.init_node('camera')
 
-    # w, h, fps = 640, 480, 30
-    w, h, fps = 1280, 720, 15
+    #取决于项目需要的输入图像的分辨率
+    w, h, fps = 640, 480, 30
+    # w, h, fps = 1280, 720, 15
+
     cam = Camera(w, h, fps)
     # bridge = CvBridge()
     # image_pub = rospy.Publisher('camera/color/image_raw', Image, queue_size=10)
@@ -69,12 +83,14 @@ def main():
         
         color_image, depthxy_image, colorizer_depth, _ = cam.get_frame()   # 读取图像帧，包括RGB图和深度图
 
+        # ros相关，不需要
         # ros_image = bridge.cv2_to_imgmsg(color_image, encoding="bgr8")  # 转换成ros的msg格式
         # image_pub.publish(ros_image)
 
         cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('RealSense', color_image)
 
+        #显示一些额外的图像窗口，比如伪彩色深度图 (colorizer_depth)
         # cv2.imshow('Filtered Depth Image', colorizer_depth)
         # images = np.hstack((color_image, depthxy_image))
         # cv2.imshow('RealSense', images)
@@ -103,6 +119,8 @@ def main():
             cv2.destroyAllWindows()
             print('...录制结束/直接退出...')
             break
+
+        #ros相关，不需要
         # rate.sleep()
     
     # wr.release()  # 录制完毕，释放对象
