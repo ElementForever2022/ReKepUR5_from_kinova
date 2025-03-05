@@ -28,11 +28,11 @@ def objective(opt_vars,
                 keypoints_centered,
                 keypoint_movable_mask,
                 path_constraints,
-                sdf_func,
+                # sdf_func,
                 collision_points_centered,
                 opt_interpolate_pos_step_size,
                 opt_interpolate_rot_step_size,
-                ik_solver,
+                # ik_solver,
                 initial_joint_pos,
                 reset_joint_pos,
                 return_debug_dict=False):
@@ -53,10 +53,12 @@ def objective(opt_vars,
 
     cost = 0
     # collision cost
-    if collision_points_centered is not None:
-        collision_cost = 0.5 * calculate_collision_cost(poses_homo[start_idx:end_idx], sdf_func, collision_points_centered, 0.20)
-        debug_dict['collision_cost'] = collision_cost
-        cost += collision_cost
+    # if collision_points_centered is not None:
+    #     collision_cost = 0.5 * calculate_collision_cost(poses_homo[start_idx:end_idx], 
+    #                                                     # sdf_func,
+    #                                                       collision_points_centered, 0.20)
+    #     debug_dict['collision_cost'] = collision_cost
+    #     cost += collision_cost
 
     # penalize path length
     pos_length, rot_length = path_length(poses_homo)
@@ -66,32 +68,34 @@ def objective(opt_vars,
     cost += path_length_cost
 
     # reachability cost
-    ik_cost = 0
-    reset_reg_cost = 0
-    debug_dict['ik_pos_error'] = []
-    debug_dict['ik_feasible'] = []
-    max_iterations = 20
-    for control_point_homo in control_points_homo:
-        ik_result = ik_solver.solve(
-                        control_point_homo,
-                        max_iterations=max_iterations,
-                        initial_joint_pos=initial_joint_pos,
-                    )
-        debug_dict['ik_pos_error'].append(ik_result.position_error)
-        debug_dict['ik_feasible'].append(ik_result.success)
-        ik_cost += 20.0 * (ik_result.num_descents / max_iterations)
-        if ik_result.success:
-            # TODO use real IK solver
-            reset_reg = np.linalg.norm(ik_result.cspace_position[:-1] - reset_joint_pos[:-1])
-            reset_reg = np.clip(reset_reg, 0.0, 3.0)
-        else:
-            reset_reg = 3.0
-        reset_reg_cost += 0.2 * reset_reg
-    debug_dict['ik_pos_error'] = np.array(debug_dict['ik_pos_error'])
-    debug_dict['ik_feasible'] = np.array(debug_dict['ik_feasible'])
-    debug_dict['ik_cost'] = ik_cost
-    debug_dict['reset_reg_cost'] = reset_reg_cost
-    cost += ik_cost
+    # ik_cost = 0
+    # reset_reg_cost = 0
+    # debug_dict['ik_pos_error'] = []
+    # debug_dict['ik_feasible'] = []
+    # max_iterations = 20
+
+
+    # for control_point_homo in control_points_homo:
+    #     ik_result = ik_solver.solve(
+    #                     control_point_homo,
+    #                     max_iterations=max_iterations,
+    #                     initial_joint_pos=initial_joint_pos,
+    #                 )
+    #     debug_dict['ik_pos_error'].append(ik_result.position_error)
+    #     debug_dict['ik_feasible'].append(ik_result.success)
+    #     ik_cost += 20.0 * (ik_result.num_descents / max_iterations)
+    #     if ik_result.success:
+    #         # TODO use real IK solver
+    #         reset_reg = np.linalg.norm(ik_result.cspace_position[:-1] - reset_joint_pos[:-1])
+    #         reset_reg = np.clip(reset_reg, 0.0, 3.0)
+    #     else:
+    #         reset_reg = 3.0
+    #     reset_reg_cost += 0.2 * reset_reg
+    # debug_dict['ik_pos_error'] = np.array(debug_dict['ik_pos_error'])
+    # debug_dict['ik_feasible'] = np.array(debug_dict['ik_feasible'])
+    # debug_dict['ik_cost'] = ik_cost
+    # debug_dict['reset_reg_cost'] = reset_reg_cost
+    # cost += ik_cost
 
     # # path constraint violation cost
     debug_dict['path_violation'] = None
@@ -130,9 +134,11 @@ class PathSolver:
     - sequence of intermediate control points
     """
 
-    def __init__(self, config, ik_solver, reset_joint_pos):
+    def __init__(self, config, 
+                #  ik_solver,
+                   reset_joint_pos):
         self.config = config
-        self.ik_solver = ik_solver
+        # self.ik_solver = ik_solver
         self.reset_joint_pos = reset_joint_pos
         self.last_opt_result = None
         # warmup
@@ -144,18 +150,20 @@ class PathSolver:
         keypoints = np.random.rand(10, 3)
         keypoint_movable_mask = np.random.rand(10) > 0.5
         path_constraints = []
-        sdf_voxels = np.zeros((10, 10, 10))
+        # sdf_voxels = np.zeros((10, 10, 10))
         collision_points = np.random.rand(100, 3)
-        self.solve(start_pose, end_pose, keypoints, keypoint_movable_mask, path_constraints, sdf_voxels, collision_points, None, from_scratch=True)
+        self.solve(start_pose, end_pose, keypoints, keypoint_movable_mask, path_constraints, 
+                #    sdf_voxels,
+                     collision_points, None, from_scratch=True)
         self.last_opt_result = None
 
-    def _setup_sdf(self, sdf_voxels):
-        # create callable sdf function with interpolation
-        x = np.linspace(self.config['bounds_min'][0], self.config['bounds_max'][0], sdf_voxels.shape[0])
-        y = np.linspace(self.config['bounds_min'][1], self.config['bounds_max'][1], sdf_voxels.shape[1])
-        z = np.linspace(self.config['bounds_min'][2], self.config['bounds_max'][2], sdf_voxels.shape[2])
-        sdf_func = RegularGridInterpolator((x, y, z), sdf_voxels, bounds_error=False, fill_value=0)
-        return sdf_func
+    # def _setup_sdf(self, sdf_voxels):
+    #     # create callable sdf function with interpolation
+    #     x = np.linspace(self.config['bounds_min'][0], self.config['bounds_max'][0], sdf_voxels.shape[0])
+    #     y = np.linspace(self.config['bounds_min'][1], self.config['bounds_max'][1], sdf_voxels.shape[1])
+    #     z = np.linspace(self.config['bounds_min'][2], self.config['bounds_max'][2], sdf_voxels.shape[2])
+    #     sdf_func = RegularGridInterpolator((x, y, z), sdf_voxels, bounds_error=False, fill_value=0)
+    #     return sdf_func
 
     def _check_opt_result(self, opt_result, path_quat, debug_dict, og_bounds):
         # accept the opt_result if it's only terminated due to iteration limit
@@ -186,7 +194,7 @@ class PathSolver:
             keypoints,
             keypoint_movable_mask,
             path_constraints,
-            sdf_voxels,
+            # sdf_voxels,
             collision_points,
             initial_joint_pos,
             from_scratch=False):
@@ -209,7 +217,7 @@ class PathSolver:
         # downsample collision points
         if collision_points is not None and collision_points.shape[0] > self.config['max_collision_points']:
             collision_points = farthest_point_sampling(collision_points, self.config['max_collision_points'])
-        sdf_func = self._setup_sdf(sdf_voxels)
+        # sdf_func = self._setup_sdf(sdf_voxels)
 
         # ====================================
         # = setup bounds
@@ -266,11 +274,11 @@ class PathSolver:
                     keypoints_centered,
                     keypoint_movable_mask,
                     path_constraints,
-                    sdf_func,
+                    # sdf_func,
                     collision_points_centered,
                     self.config['opt_interpolate_pos_step_size'],
                     self.config['opt_interpolate_rot_step_size'],
-                    self.ik_solver,
+                    # self.ik_solver,
                     initial_joint_pos,
                     self.reset_joint_pos)
 

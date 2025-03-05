@@ -5,3 +5,4 @@ data/
 vlm_query/
 chessboards/
 genesis/pybullet_ur5_gripper
+outputs/next*

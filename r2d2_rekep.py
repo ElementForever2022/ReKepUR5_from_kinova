@@ -10,7 +10,8 @@ import argparse
 from rekep.environment import R2D2Env
 
 from rekep.ik_solver import FrankaIKSolver
-from rekep.ik_solver_ur5 import UR5eIKSolver
+# from rekep.ik_solver_ur5 import UR5eIKSolver
+from rekep.iksolver_xjc import UR5IKSolver
 
 from rekep.subgoal_solver import SubgoalSolver
 from rekep.path_solver import PathSolver
@@ -30,6 +31,9 @@ from rekep.utils import (
 )
 
 from r2d2_vision import R2D2Vision
+
+import datetime
+
 '''
 metadata.json
 {
@@ -84,19 +88,32 @@ class MainR2D2:
         #     reset_joint_pos= self.env.reset_joint_pos,
         #     world2robot_homo= self.env.world2robot_homo,
         # )
-        ik_solver = UR5eIKSolver(
-            reset_joint_pos= self.env.reset_joint_pos,
-            world2robot_homo= self.env.world2robot_homo,
-        )
+        # ik_solver = UR5eIKSolver(
+        #     reset_joint_pos= self.env.reset_joint_pos,
+        #     world2robot_homo= self.env.world2robot_homo,
+        # )
+        # ik_solver = UR5IKSolver(
+        #     reset_joint_pos= self.env.reset_joint_pos,
+        #     world2robot_homo= self.env.world2robot_homo,
+        # )
 
         # initialize solvers
-        self.subgoal_solver = SubgoalSolver(global_config['subgoal_solver'], ik_solver, self.env.reset_joint_pos)
-        self.path_solver = PathSolver(global_config['path_solver'], ik_solver, self.env.reset_joint_pos)
-        self.visualizer = Visualizer(global_config['visualizer'])
+        self.subgoal_solver = SubgoalSolver(global_config['subgoal_solver'],
+                                            #  ik_solver,
+                                               self.env.reset_joint_pos)
+        self.path_solver = PathSolver(global_config['path_solver'],
+                                    #    ik_solver,
+                                         self.env.reset_joint_pos)
+        # self.visualizer = Visualizer(global_config['visualizer'])
+        with open('./robot_state.json', 'r') as f:
+            robot_state = json.load(f)
+            # 获取坐标系变换矩阵
+            self.mat_world2robot = np.array(robot_state['misc']['world2robot_homo']) # 从世界坐标系(cam)变换到机器人坐标系(base)
+            self.mat_robot2world = np.linalg.inv(self.mat_world2robot) # 从机器人坐标系变换到世界坐标系
 
-        if visualize:
-            self.visualizer = Visualizer(global_config['visualizer'])
-            self.data_path = "D:\ReKep-main\data"
+        # if visualize:
+        #     self.visualizer = Visualizer(global_config['visualizer'])
+        #     self.data_path = "D:\ReKep-main\data"
 
     @timer_decorator
     def perform_task(self, instruction, obj_list=None, rekep_program_dir=None):
@@ -140,20 +157,26 @@ class MainR2D2:
         with open('./robot_state.json', 'r') as f:
             robot_state = json.load(f)
             stage = robot_state.get('rekep_stage', 1)  # !!! @Tianyou Default to stage 1 if not found
+
         # store robot state in rekep_program_dir
         with open(os.path.join(rekep_program_dir, f'robot_state_{stage}.json'), 'w') as f:
             json.dump(robot_state, f, indent=4)
                 # Get current state
         while int(stage) <= self.program_info['num_stages']:
             # scene_keypoints = self.env.get_keypoint_positions()
-            self.keypoints = np.concatenate([[self.env.get_ee_pos()], # 加一个方括号是为了把1D的array升成2D
-                                             self.env.get_keypoint_positions()], axis=0)
+            # self.keypoints = np.concatenate([[self.env.get_ee_pos()], # 加一个方括号是为了把1D的array升成2D
+            #                                  self.env.get_keypoint_positions()], axis=0)
+            self.keypoints = np.concatenate([
+                [self._kinova_get_ee_pos_world()[:3]],
+                self.env.get_keypoint_positions()
+            ],axis=0)
             print(f"stage {int(stage)}: keypoints{self.keypoints}")
             # self.curr_ee_pose = self.env.get_ee_pose()  # TODO check, may be constant? 
             # self.curr_joint_pos = self.env.get_arm_joint_positions() 
-            self.curr_ee_pose = self._kinova_get_ee_pos()
+            # self.curr_ee_pose = self._kinova_get_ee_pos()
+            self.curr_ee_pose = self._kinova_get_ee_pos_world()
             self.curr_joint_pos = self._kinova_get_joint_pos()
-            self.sdf_voxels = self.env.get_sdf_voxels(self.config['sdf_voxel_size']) # TODO ???
+            # self.sdf_voxels = self.env.get_sdf_voxels(self.config['sdf_voxel_size']) # TODO ???
             self.collision_points = self.env.get_collision_points()
             
             # stage = input(f"Enter stage number (1-{self.program_info['num_stages']}): ")
@@ -175,10 +198,29 @@ class MainR2D2:
             next_subgoal = self._get_next_subgoal(from_scratch=self.first_iter)
             print(f'next subgoal: {next_subgoal}')
 
-            # 这里运行时， 维度对不上
+            # 维度对上了
             next_path = self._get_next_path(next_subgoal, from_scratch=self.first_iter)
             self.first_iter = False
 
+            # 将subgoal和path输出到文件中
+            currrent_time = datetime.datetime.now()
+            timestamp = '{}-{}-{}-{}-{}-{}'.format(
+                currrent_time.year,
+                currrent_time.month,
+                currrent_time.day,
+                currrent_time.hour,
+                currrent_time.minute,
+                currrent_time.second,
+            )
+            output_dir = './outputs/'
+            subgoal_file_path = f'{output_dir}next_subgoals_{timestamp}'
+            next_path_file_path = f'{output_dir}next_paths_{timestamp}'
+            with open(subgoal_file_path,'a') as f:
+                f.write(f'{next_subgoal}\n')
+                print(f'subgoal written to {subgoal_file_path}')
+            with open(next_path_file_path,'a') as f:
+                f.write(f'{next_path}\n')
+                print(f'next path written to {next_path_file_path}')
 
             # pdb.set_trace()
             # Add gripper actions based on stage type
@@ -198,8 +240,16 @@ class MainR2D2:
                     next_path[i, 7] = self.env.get_gripper_open_action()
 
             for i in range(next_path.shape[0]):
-                target_pos = next_path[i, :7]
-                self._kinova_move_to_ee_pos(target_pos)
+                target_pos_world = next_path[i, :7]
+                # 将世界坐标系的位置转换为机器人坐标系的位置
+                mat_target_pos_world = np.eye(4)
+                mat_target_pos_world[:3,:3] = R.from_quat(target_pos_world[3:]).as_matrix()
+                mat_target_pos_world[:3,3] = target_pos_world[:3]
+                mat_target_pos_robot = self.mat_world2robot@mat_target_pos_world
+                target_pos_robot = np.zeros(7)
+                target_pos_robot[3:] = R.from_matrix(mat_target_pos_robot[:3,:3]).as_quat()
+                target_pos_robot[:3] = mat_target_pos_robot[:3,3]
+                self._kinova_move_to_ee_pos(target_pos_robot)
                 
             self.all_actions.append(next_path)
             stage += 1
@@ -236,12 +286,48 @@ class MainR2D2:
         # ee_pos = self.kinova.get_tool_position()
         ee_pos = self.robot_env.robot.get_tcp_pose() # tool central pose 工具中心点
         angles = ee_pos[3:]
-        angles = np.radians(angles)
+        # angles = np.radians(angles)
         rotation = R.from_euler('xyz', angles)
+        print('angles:',angles)
+        print('rotation:', rotation.as_matrix())
         quat = rotation.as_quat() # 可能是四元旋转矩阵
         quat = quat.reshape(1, -1)
         quat = quat[0]
+        print(quat)
         return np.concatenate([ee_pos[:3], quat])
+
+    def _kinova_get_ee_pos_world(self):
+        """
+        获取ur5机器人的ee的7D坐标, [x,y,z,quat], 同时是在世界坐标系下(相机坐标系下)
+        """
+        # 获取机器人ee在基座base坐标系下的原始坐标
+        ee_pos = self.robot_env.robot.get_tcp_pose() # tool central pose 工具中心点
+        angles = ee_pos[3:] # 机器人ee的方向(欧拉角,rad)
+        rotation = R.from_euler('xyz', angles) # 将欧拉角转换为scipy标准形式
+        print('angles:',angles)
+        print('rotation:', rotation.as_matrix())
+
+        # 将机器人ee的base坐标转换为世界坐标系
+        # 首先是把ee用4*4的矩阵表示
+        ee_matrix_base = np.eye(4)
+        ee_matrix_base[:3,:3] = rotation.as_matrix()
+        ee_matrix_base[:3,3] = ee_pos[:3]
+        # 获取变换矩阵
+        mat_robot2world = self.mat_robot2world
+        # 将ee矩阵从机器人坐标系变换到世界坐标系(相机坐标系)
+        ee_matrix_world = mat_robot2world@ee_matrix_base
+        # 将ee矩阵的旋转信息和位置信息解包出来
+        ee_pos_world = ee_matrix_world[:3,3] # 机器人ee在世界坐标系下的坐标[x,y,z]
+        ee_rotation_world = R.from_matrix(ee_matrix_world[:3,:3]) # 机器人ee在世界坐标系下的方向(转换为scipy标准形式)
+
+        # 将ee方向转换为四元数quat
+        print('ee_rotation_world:',ee_rotation_world.as_euler('xyz'))
+        print('ee_pos_world:',ee_pos_world)
+        quat = ee_rotation_world.as_quat()
+        quat = quat.reshape(1, -1)
+        quat = quat[0]
+        print('quat world:',quat)
+        return np.concatenate([ee_pos_world, quat])
     
     def _kinova_move_to_ee_pos(self, target_pos):
         target_quat = target_pos[3:]
@@ -280,13 +366,21 @@ class MainR2D2:
         # pdb.set_trace()
         subgoal_constraints = self.constraint_fns[self.stage]['subgoal']
         path_constraints = self.constraint_fns[self.stage]['path']
+        param_names = "self.curr_ee_pose,self.keypoints,self.keypoint_movable_mask,subgoal_constraints,path_constraints,self.collision_points,self.is_grasp_stage,self.curr_joint_pos,from_scratch"
+        param_name_list = param_names.split(',')
+        params = [self.curr_ee_pose,self.keypoints,self.keypoint_movable_mask,subgoal_constraints,path_constraints,self.collision_points,self.is_grasp_stage,self.curr_joint_pos,from_scratch]
+        print('subgoal params:')
+        for param_name, param in zip(param_name_list,params):
+            print('\t',param_name,":",param)
+            print()
+        
         subgoal_pose, debug_dict = self.subgoal_solver.solve(self.curr_ee_pose,
                                                             self.keypoints,
                                                             self.keypoint_movable_mask,
                                                             subgoal_constraints,
                                                             path_constraints,
-                                                            self.sdf_voxels,
-                                                            self.collision_points,
+                                                            # self.sdf_voxels,
+                                                            # self.collision_points,
                                                             self.is_grasp_stage,
                                                             self.curr_joint_pos,
                                                             from_scratch=from_scratch)
@@ -312,7 +406,7 @@ class MainR2D2:
                                                     self.keypoints,
                                                     self.keypoint_movable_mask,
                                                     path_constraints,
-                                                    self.sdf_voxels,
+                                                    # self.sdf_voxels,
                                                     self.collision_points,
                                                     self.curr_joint_pos,
                                                     from_scratch=from_scratch)
@@ -396,7 +490,10 @@ if __name__ == "__main__":
     # newest_rekep_dir = '/home/ur5/rekep/Rekep4Real/vlm_query/2025-01-21_22-27-34_help_me_take_that_bottle_of_water'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-25_15-47-47_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-26_10-35-40_help_me_take_the_cube'
-    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-03_16-02-45_help_me_take_the_block'
+    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-04_19-23-52_help_me_take_the_block'
+
 
     main = MainR2D2(visualize=args.visualize)
+    # main._kinova_get_ee_pos()
+    # main._kinova_get_ee_pos_world()
     main.perform_task(instruction=args.instruction, rekep_program_dir=newest_rekep_dir)

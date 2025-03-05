@@ -485,8 +485,8 @@ class RobotEnv:
         shoot_thread = threading.Thread(target=button_detect)
         shoot_thread.daemon = True # 设定为守护进程
         # shoot_thread.start()
-        # self.cameras.global_camera.realtime_shoot()
-        self.cameras.wrist_camera.realtime_shoot()
+        self.cameras.global_camera.realtime_shoot()
+        # self.cameras.wrist_camera.realtime_shoot()
 
 class ur5Robot:
     def __init__(self, ip='192.168.0.201', port=30004, FREQUENCY=500,
@@ -616,7 +616,7 @@ class ur5Robot:
         t_start = time.time()
         while time.time() - t_start < trajectory_time:
             state = self.con.receive()
-            print(f'state. runtime_state: {state.runtime_state}')
+            # print(f'state. runtime_state: {state.runtime_state}')
             t_current = time.time() - t_start
 
             if state.runtime_state > 1 and t_current <= trajectory_time:
@@ -624,7 +624,7 @@ class ur5Robot:
                 position_ref, lin_vel_ref, acceleration_ref = planner.trajectory_planning(t_current)
                 pose = position_ref.tolist() + orientation_const
                 self.list_to_setp(self.setp, pose)
-                print(f"Sending setp: {pose}")
+                # print(f"Sending setp: {pose}")
                 self.con.send(self.setp)
 
         # 打印

@@ -12,7 +12,7 @@ from .transform_utils import (
 
 from .utils import (
     transform_keypoints,
-    calculate_collision_cost,
+    # calculate_collision_cost,
     normalize_vars,
     unnormalize_vars,
     farthest_point_sampling,
@@ -24,10 +24,10 @@ def objective(opt_vars,
             keypoint_movable_mask,
             goal_constraints,
             path_constraints,
-            sdf_func,
-            collision_points_centered,
+            # sdf_func,
+            # collision_points_centered,
             init_pose_homo,
-            ik_solver,
+            # ik_solver,
             initial_joint_pos,
             reset_joint_pos,
             is_grasp_stage,
@@ -39,10 +39,12 @@ def objective(opt_vars,
     opt_pose_homo = pose2mat([opt_pose[:3], euler2quat(opt_pose[3:])])
     cost = 0
     # collision cost
-    if collision_points_centered is not None:
-        collision_cost = 0.8 * calculate_collision_cost(opt_pose_homo[None], sdf_func, collision_points_centered, 0.10)
-        debug_dict['collision_cost'] = collision_cost
-        cost += collision_cost
+    # if collision_points_centered is not None:
+        # collision_cost = 0.8 * calculate_collision_cost(opt_pose_homo[None], 
+        #                                                 # sdf_func,
+        #                                                   collision_points_centered, 0.10)
+        # debug_dict['collision_cost'] = collision_cost
+        # cost += collision_cost
 
     # stay close to initial pose
     init_pose_cost = 1.0 * consistency(opt_pose_homo[None], init_pose_homo[None], rot_weight=1.5)
@@ -51,24 +53,24 @@ def objective(opt_vars,
 
     # reachability cost (approximated by number of IK iterations + regularization from reset joint pos)
     max_iterations = 20
-    ik_result = ik_solver.solve(
-                    opt_pose_homo,
-                    max_iterations=max_iterations,
-                    initial_joint_pos=initial_joint_pos,
-                )
-    ik_cost = 20.0 * (ik_result.num_descents / max_iterations)
-    debug_dict['ik_feasible'] = ik_result.success
-    debug_dict['ik_pos_error'] = ik_result.position_error
-    debug_dict['ik_cost'] = ik_cost
-    cost += ik_cost
-    if 0:# ik_result.success:
-        reset_reg = np.linalg.norm(ik_result.cspace_position[:-1] - reset_joint_pos[:-1])
-        reset_reg = np.clip(reset_reg, 0.0, 3.0)
-    else:
-        reset_reg = 3.0
-    reset_reg_cost = 0.2 * reset_reg
-    debug_dict['reset_reg_cost'] = reset_reg_cost
-    cost += reset_reg_cost
+    # ik_result = ik_solver.solve(
+    #                 opt_pose_homo,
+    #                 max_iterations=max_iterations,
+    #                 initial_joint_pos=initial_joint_pos,
+    #             )
+    # ik_cost = 20.0 * (ik_result.num_descents / max_iterations)
+    # debug_dict['ik_feasible'] = ik_result.success
+    # debug_dict['ik_pos_error'] = ik_result.position_error
+    # debug_dict['ik_cost'] = ik_cost
+    # cost += ik_cost
+    # if 0:# ik_result.success:
+    #     reset_reg = np.linalg.norm(ik_result.cspace_position[:-1] - reset_joint_pos[:-1])
+    #     reset_reg = np.clip(reset_reg, 0.0, 3.0)
+    # else:
+    #     reset_reg = 3.0
+    # reset_reg_cost = 0.2 * reset_reg
+    # debug_dict['reset_reg_cost'] = reset_reg_cost
+    # cost += reset_reg_cost
 
     # grasp metric (better performance if using anygrasp or force-based grasp metrics)
     if is_grasp_stage:
@@ -118,9 +120,11 @@ def objective(opt_vars,
 
 
 class SubgoalSolver:
-    def __init__(self, config, ik_solver, reset_joint_pos):
+    def __init__(self, config, 
+                #  ik_solver,
+                   reset_joint_pos):
         self.config = config
-        self.ik_solver = ik_solver
+        # self.ik_solver = ik_solver
         self.reset_joint_pos = reset_joint_pos
         self.last_opt_result = None
         # warmup
@@ -132,18 +136,21 @@ class SubgoalSolver:
         keypoint_movable_mask = np.random.rand(10) > 0.5
         goal_constraints = []
         path_constraints = []
-        sdf_voxels = np.zeros((10, 10, 10))
-        collision_points = np.random.rand(100, 3)
-        self.solve(ee_pose, keypoints, keypoint_movable_mask, goal_constraints, path_constraints, sdf_voxels, collision_points, True, None, from_scratch=True)
+        # sdf_voxels = np.zeros((10, 10, 10))
+        # collision_points = np.random.rand(100, 3)
+        self.solve(ee_pose, keypoints, keypoint_movable_mask, goal_constraints, path_constraints, 
+                #    sdf_voxels,
+                    #  collision_points, 
+                     True, None, from_scratch=True)
         self.last_opt_result = None
 
-    def _setup_sdf(self, sdf_voxels):
-        # create callable sdf function with interpolation
-        x = np.linspace(self.config['bounds_min'][0], self.config['bounds_max'][0], sdf_voxels.shape[0])
-        y = np.linspace(self.config['bounds_min'][1], self.config['bounds_max'][1], sdf_voxels.shape[1])
-        z = np.linspace(self.config['bounds_min'][2], self.config['bounds_max'][2], sdf_voxels.shape[2])
-        sdf_func = RegularGridInterpolator((x, y, z), sdf_voxels, bounds_error=False, fill_value=0)
-        return sdf_func
+    # def _setup_sdf(self, sdf_voxels):
+    #     # create callable sdf function with interpolation
+    #     x = np.linspace(self.config['bounds_min'][0], self.config['bounds_max'][0], sdf_voxels.shape[0])
+    #     y = np.linspace(self.config['bounds_min'][1], self.config['bounds_max'][1], sdf_voxels.shape[1])
+    #     z = np.linspace(self.config['bounds_min'][2], self.config['bounds_max'][2], sdf_voxels.shape[2])
+    #     sdf_func = RegularGridInterpolator((x, y, z), sdf_voxels, bounds_error=False, fill_value=0)
+    #     return sdf_func
 
     def _check_opt_result(self, opt_result, debug_dict):
         # accept the opt_result if it's only terminated due to iteration limit
@@ -168,16 +175,19 @@ class SubgoalSolver:
                 opt_result.success = False
                 opt_result.message += f'; path not satisfied'
         # check whether ik is feasible
-        if 'ik_feasible' in debug_dict and not debug_dict['ik_feasible']:
-            opt_result.success = False
-            opt_result.message += f'; ik not feasible'
+        # if 'ik_feasible' in debug_dict and not debug_dict['ik_feasible']:
+        #     opt_result.success = False
+        #     opt_result.message += f'; ik not feasible'
         return opt_result
     
-    def _center_collision_points_and_keypoints(self, ee_pose_homo, collision_points, keypoints, keypoint_movable_mask):
+    def _center_collision_points_and_keypoints(self, ee_pose_homo,
+                                                # collision_points,
+                                                  keypoints, keypoint_movable_mask):
         centering_transform = np.linalg.inv(ee_pose_homo)
-        collision_points_centered = np.dot(collision_points, centering_transform[:3, :3].T) + centering_transform[:3, 3]
+        # collision_points_centered = np.dot(collision_points, centering_transform[:3, :3].T) + centering_transform[:3, 3]
         keypoints_centered = transform_keypoints(centering_transform, keypoints, keypoint_movable_mask)
-        return collision_points_centered, keypoints_centered
+        # return collision_points_centered, keypoints_centered
+        return keypoints_centered
 
     def solve(self,
             ee_pose,
@@ -185,8 +195,8 @@ class SubgoalSolver:
             keypoint_movable_mask,
             goal_constraints,
             path_constraints,
-            sdf_voxels,
-            collision_points,
+            # sdf_voxels,
+            # collision_points,
             is_grasp_stage,
             initial_joint_pos,
             from_scratch=False,
@@ -209,9 +219,9 @@ class SubgoalSolver:
         """
         print(f'from scratch={from_scratch}')
         # downsample collision points
-        if collision_points is not None and collision_points.shape[0] > self.config['max_collision_points']:
-            collision_points = farthest_point_sampling(collision_points, self.config['max_collision_points'])
-        sdf_func = self._setup_sdf(sdf_voxels)
+        # if collision_points is not None and collision_points.shape[0] > self.config['max_collision_points']:
+        #     collision_points = farthest_point_sampling(collision_points, self.config['max_collision_points'])
+        # sdf_func = self._setup_sdf(sdf_voxels)
         # ====================================
         # = setup bounds and initial guess
         # ====================================
@@ -234,16 +244,17 @@ class SubgoalSolver:
         # ====================================
         # = other setup
         # ====================================
-        collision_points_centered, keypoints_centered = self._center_collision_points_and_keypoints(ee_pose_homo, collision_points, keypoints, keypoint_movable_mask)
+        # collision_points_centered, keypoints_centered = self._center_collision_points_and_keypoints(ee_pose_homo, collision_points, keypoints, keypoint_movable_mask)
+        keypoints_centered = self._center_collision_points_and_keypoints(ee_pose_homo, keypoints, keypoint_movable_mask)
         aux_args = (og_bounds,
                     keypoints_centered,
                     keypoint_movable_mask,
                     goal_constraints,
                     path_constraints,
-                    sdf_func,
-                    collision_points_centered,
+                    # sdf_func,
+                    # collision_points_centered,
                     ee_pose_homo,
-                    self.ik_solver,
+                    # self.ik_solver,
                     initial_joint_pos,
                     self.reset_joint_pos,
                     is_grasp_stage)

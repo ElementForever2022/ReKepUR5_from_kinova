@@ -7,6 +7,7 @@ import numpy as np
 import tqdm
 
 import random
+from scipy.spatial.transform import Rotation as R
 
 # 预定义参数(可修改)
 XX, YY = 7, 7 # 棋盘格尺寸为8*8, 所以XX和YY要定义为7*7
@@ -15,6 +16,21 @@ L = 0.0128
 save_dir = './chessboards/'
 filter_bound = 1
 num_samples = 2000 # 抽样数量
+
+# 相机内参
+class RS_Intrinsics:
+    def __init__(self):
+        self.fx = 386.738  # focal length x:m
+        self.fy = 386.738
+        self.ppx = 319.5 # 光心坐标
+        self.ppy = 239.5
+intrinsics = RS_Intrinsics()
+intrinsics_matrix = np.array([
+    [intrinsics.fx, 0, intrinsics.ppx],
+    [0, intrinsics.fy, intrinsics.ppy],
+    [0,0,1]
+])
+
 # L = 12.8 # mm
 # 打印预定义参数
 print('#'*20)
@@ -23,6 +39,7 @@ print(f'length of unit squares(can be manually modified):\n\t{L}m')
 print(f'save directory:\n\t{save_dir}')
 print(f'filter bound:\n\t±{filter_bound} sigma')
 print(f'number of samples:\n\t{num_samples}')
+print(f'camera intrinsics matrix:\n{intrinsics_matrix}')
 print('#'*20,'\n')
 
 def get_imgs_and_tcps(save_dir=f'{save_dir}'):
@@ -113,9 +130,24 @@ def calc_Mcc(imgs):
     # 寻找到每个图片的点之后，计算每个图片的Mcc
     size = imgs[0].shape[:2][::-1] # size是图片的大小(H,W)
     # 标定，得到图案在相机坐标系下的位姿（Mcc）
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(obj_points, img_points, size, None, None)
+    # ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(obj_points, img_points, size, None, None,criteria= 
+    #                                                    (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001))
+    ret, mtx, dist, rvecs_tuple, tvecs_tuple = cv2.calibrateCamera(obj_points, img_points, size, intrinsics_matrix, None,
+                                                       criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001))
+    # 这里给这个矩阵求个逆
+    rvecs_inv_list = []
+    tvecs_inv_list = []
+    for rvecs,tvecs in zip(rvecs_tuple,tvecs_tuple):
+        rvecs = R.from_euler('xyz',rvecs[:,0]).as_matrix()
+        rvecs = np.linalg.inv(rvecs)
+        tvecs = -rvecs@tvecs
+        rvecs = R.from_matrix(rvecs).as_euler('xyz').reshape(-1,1) # 转换为列向量
+
+        rvecs_inv_list.append(rvecs)
+        tvecs_inv_list.append(tvecs)
     # 其中的rvecs就是每个Mcc的旋转矩阵，tvecs是每个Mcc的平移向量
-    return rvecs, tvecs
+    return rvecs_tuple, tvecs_tuple
+    # return rvecs_inv_list, tvecs_inv_list
 
 def calc_Mtb(tcps):
     """
@@ -134,23 +166,28 @@ def calc_Mtb(tcps):
         输入:
             rx,ry,rz 欧拉角旋转
         输出:
-            R 旋转矩阵
+            MR 旋转矩阵
         """
+        # 将其转换为scipy旋转标准形式
+        scipy_rotation = R.from_euler('xyz',np.array([rx,ry,rz]))
+        # 将标准形式转换为旋转矩阵形式
+        MR = scipy_rotation.as_matrix()
+        return MR
         # 计算旋转矩阵
-        Rx = np.array([[1, 0, 0],
-                    [0, np.cos(rx), -np.sin(rx)],
-                    [0, np.sin(rx), np.cos(rx)]])
+        # Rx = np.array([[1, 0, 0],
+        #             [0, np.cos(rx), -np.sin(rx)],
+        #             [0, np.sin(rx), np.cos(rx)]])
 
-        Ry = np.array([[np.cos(ry), 0, np.sin(ry)],
-                    [0, 1, 0],
-                    [-np.sin(ry), 0, np.cos(ry)]])
+        # Ry = np.array([[np.cos(ry), 0, np.sin(ry)],
+        #             [0, 1, 0],
+        #             [-np.sin(ry), 0, np.cos(ry)]])
 
-        Rz = np.array([[np.cos(rz), -np.sin(rz), 0],
-                    [np.sin(rz), np.cos(rz), 0],
-                    [0, 0, 1]])
+        # Rz = np.array([[np.cos(rz), -np.sin(rz), 0],
+        #             [np.sin(rz), np.cos(rz), 0],
+        #             [0, 0, 1]])
 
-        R = Rz@Ry@Rx  # 先绕 x轴旋转 再绕y轴旋转  最后绕z轴旋转
-        return R
+        # R = Rz@Ry@Rx  # 先绕 x轴旋转 再绕y轴旋转  最后绕z轴旋转
+        # return R
     # 将机械臂位姿(tcp)转换为旋转矩阵
     def pose_to_homogeneous_matrix(tcp):
         """
@@ -164,24 +201,24 @@ def calc_Mtb(tcps):
         # 将变量解包
         x, y, z, rx, ry, rz = tcp
         # 计算旋转矩阵
-        R = euler_angles_to_rotation_matrix(rx, ry, rz)
+        MR = euler_angles_to_rotation_matrix(rx, ry, rz)
         # 计算平移矩阵(列向量)
         t = np.array([x, y, z]).reshape(3, 1)
 
         # 将旋转矩阵和平移矩阵拼接为线性变换矩阵
         H = np.eye(4)
-        H[:3, :3] = R
+        H[:3, :3] = MR
         H[:3, 3] = t[:, 0]
 
         # 返回线性变换矩阵
         return H
     
     def inverse_transformation_matrix(T):
-        R = T[:3, :3]
+        MR = T[:3, :3]
         t = T[:3, 3]
 
         # 计算旋转矩阵的逆矩阵
-        R_inv = R.T
+        R_inv = MR.T
 
         # 计算平移向量的逆矩阵
         t_inv = -np.dot(R_inv, t)
@@ -203,6 +240,7 @@ def calc_Mtb(tcps):
         Mbt = pose_to_homogeneous_matrix(tcp)
         # 对矩阵求逆即为基座base相对tool的变换矩阵
         Mtb = inverse_transformation_matrix(Mbt)
+        # Mtb = Mbt.copy()
 
         # 对矩阵解包即可得到旋转矩阵R_tool和平移矩阵t_tool
         R_tool = Mtb[:3,:3] # 旋转矩阵
@@ -227,7 +265,7 @@ def imgs_tcps_to_Rt(imgs,tcps):
     # print('t_tools',t_tools)
 
     # 第四步: 根据上面得到的4组矩阵得到标定矩阵R和t
-    R, t = cv2.calibrateHandEye(R_tools, t_tools, rvecs, tvecs, cv2.CALIB_HAND_EYE_TSAI)
+    MR, t = cv2.calibrateHandEye(R_tools, t_tools, rvecs, tvecs, cv2.CALIB_HAND_EYE_TSAI)
 
     # 打印标定结果
     # print('#'*20)
@@ -239,17 +277,18 @@ def imgs_tcps_to_Rt(imgs,tcps):
     # print('Centre distance:')
     # print(np.sqrt(t.T@t))
     # print('#'*20)
-
-    return R,t
+    # print('MR',MR)
+    # print('t',t,np.sqrt(t.T@t))
+    return MR,t
 
 from scipy.spatial.transform import Rotation as Rot
-def Rt_to_xyzrxryrz(R,t):
+def Rt_to_xyzrxryrz(MR,t):
 
     # 提取平移矩阵
     x,y,z = t[0,0],t[1,0],t[2,0]
 
     # 创建旋转对象
-    rotation = Rot.from_matrix(R)
+    rotation = Rot.from_matrix(MR)
 
     # 将旋转矩阵转换为欧拉角
     # 'xyz'表示欧拉角的旋转顺序
@@ -269,48 +308,53 @@ def xyzrxryrz_to_Rt(x,y,z,rx,ry,rz):
         输入:
             rx,ry,rz 欧拉角旋转
         输出:
-            R 旋转矩阵
+            MR 旋转矩阵
         """
+        # 将其转换为scipy旋转标准形式
+        scipy_rotation = R.from_euler('xyz',np.array([rx,ry,rz]))
+        # 将标准形式转换为旋转矩阵形式
+        MR = scipy_rotation.as_matrix()
+        return MR
         # 计算旋转矩阵
-        Rx = np.array([[1, 0, 0],
-                    [0, np.cos(rx), -np.sin(rx)],
-                    [0, np.sin(rx), np.cos(rx)]])
+        # Rx = np.array([[1, 0, 0],
+        #             [0, np.cos(rx), -np.sin(rx)],
+        #             [0, np.sin(rx), np.cos(rx)]])
 
-        Ry = np.array([[np.cos(ry), 0, np.sin(ry)],
-                    [0, 1, 0],
-                    [-np.sin(ry), 0, np.cos(ry)]])
+        # Ry = np.array([[np.cos(ry), 0, np.sin(ry)],
+        #             [0, 1, 0],
+        #             [-np.sin(ry), 0, np.cos(ry)]])
 
-        Rz = np.array([[np.cos(rz), -np.sin(rz), 0],
-                    [np.sin(rz), np.cos(rz), 0],
-                    [0, 0, 1]])
+        # Rz = np.array([[np.cos(rz), -np.sin(rz), 0],
+        #             [np.sin(rz), np.cos(rz), 0],
+        #             [0, 0, 1]])
 
-        R = Rz@Ry@Rx  # 先绕 x轴旋转 再绕y轴旋转  最后绕z轴旋转
-        return R
+        # R = Rz@Ry@Rx  # 先绕 x轴旋转 再绕y轴旋转  最后绕z轴旋转
+        # return R
 
     t = np.array([[x],[y],[z]],dtype=np.float32)
-    R = euler_angles_to_rotation_matrix(rx,ry,rz)
+    MR = euler_angles_to_rotation_matrix(rx,ry,rz)
 
-    return R,t
+    return MR,t
 
 
 def append_normt_xyzrxryrz(num_workers,num_samples, num_indices, imgs,tcps, progress_counter,lock_counter, global_norm_ts, global_xyzrxryrzs):
     
     for epoch in range(num_samples//num_workers):
         indices = range(num_indices)
-        chosen_indices = random.sample(indices,35) # 从下标中抽35个元素, 不重复
+        chosen_indices = random.sample(indices,15) # 从下标中抽35个元素, 不重复
 
         # 按照下标得到对应的图片和tcp
         chosen_imgs = [imgs[img_index] for img_index in chosen_indices]
         chosen_tcps = [tcps[tcp_index] for tcp_index in chosen_indices]
 
         # 代入计算得到转换矩阵
-        R,t = imgs_tcps_to_Rt(chosen_imgs, chosen_tcps)
+        MR,t = imgs_tcps_to_Rt(chosen_imgs, chosen_tcps)
 
         # 计算偏移量的模并将其保存
         norm_t = np.sqrt(t.T@t)[0,0]
 
         # 计算各个分量的值
-        x,y,z,rx,ry,rz = Rt_to_xyzrxryrz(R,t)
+        x,y,z,rx,ry,rz = Rt_to_xyzrxryrz(MR,t)
 
 
         
@@ -334,7 +378,7 @@ def main():
 
     # 多进程计算
     import multiprocessing as mp
-    num_workers = 100
+    num_workers = 20
     # 使用Manager创建一个共享的进度计数器
     manager = mp.Manager()
     progress_counter = manager.Value('i', 0)
@@ -467,4 +511,12 @@ def main():
     print(f'callibration matrix saved to: {callibration_matrix_save_dir}')
 
 if __name__ == '__main__':
-    main()
+    # main()
+    imgs,tcps = get_imgs_and_tcps()
+    img = imgs[0]
+    cv2.imshow('img',img)
+    cv2.waitKey(0)
+    Mcc = calc_Mcc([img])
+    ts = Mcc[0]
+    t = ts[0]
+    print(t, np.sqrt(t.T@t))
