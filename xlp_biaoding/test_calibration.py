@@ -116,8 +116,8 @@ def get_matrix(color_image, aligned_depth_frame):
     # ])
 
     #需要填写的参数，“机器人基座 -> 棋盘格”的位姿
-    r2b_rvecs = np.array([0, -180, -180])
-    r2b_tvecs = np.array([ -0.5, 0, 0])#注意单位是M
+    r2b_rvecs = np.array([-180, 0, -180])
+    r2b_tvecs = np.array([ -0.39, -0.184, 0])#注意单位是M
 
     robot_to_board = convert_to_transformation_matrix(r2b_rvecs, r2b_tvecs)
     print("（机器人到棋盘格）robot_to_board_martix:",robot_to_board)
@@ -263,9 +263,9 @@ def main():
             # depth = depth_image[y, x] * aligned_depth_frame.get_units()
             depth = depth_image[y, x] /1000
             # 将鼠标点从像素点转化为机器人坐标
-            robot_to_camera = np.array(   [[ 0.46539323, -0.29679976, -0.83385793,  0.2667934 ],
- [-0.42660049, -0.90067087,  0.08248637, -0.35520243],
- [-0.77551349,  0.3173356 , -0.54578104,  0.66247152],
+            robot_to_camera = np.array(   [[ 0.73125862,  0.67913361, -0.06354816,  0.41680908],
+ [ 0.37175756, -0.47492843, -0.7976461 , -0.05868112],
+ [-0.57188911,  0.55966108, -0.59976856,  0.72352938],
  [ 0.        ,  0.        ,  0.        ,  1.        ]])
             robot_coords = pixel_to_robot(x, y, depth, camera_matrix, robot_to_camera)
             rx = robot_coords[0, 0]

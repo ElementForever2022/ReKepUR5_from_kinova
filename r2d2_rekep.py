@@ -132,6 +132,47 @@ class MainR2D2:
         # ====================================
         self._execute(realworld_rekep_program_dir)
 
+    def pose7d_world2robot(self,pose7d):
+        """
+        将[x,y,z,quat]从世界/相机坐标系转换为机器人坐标系
+        """
+        # vec2mat
+        xyz = pose7d[0:3]
+        orientation_quat = pose7d[3:]
+        mat_pose_world = np.eye(4)
+        mat_pose_world[:3,3] = xyz
+        mat_pose_world[:3,:3] = R.from_quat(orientation_quat).as_matrix()
+
+        # transformation matrix
+        transformation_matrix = self.mat_world2robot
+        mat_pose_robot = transformation_matrix@mat_pose_world
+
+        # mat2vec
+        robot_xyz = mat_pose_robot[:3,3]
+        robot_quat = R.from_matrix(mat_pose_robot[:3,:3]).as_quat()
+        robot_pose7d = np.hstack((robot_xyz, robot_quat))
+        return robot_pose7d
+    def pose7d_robot2world(self,pose7d):
+        """
+        将[x,y,z,quat]从机器人坐标系转换为世界/相机坐标系
+        """
+        # vec2mat
+        xyz = pose7d[0:3]
+        orientation_quat = pose7d[3:]
+        mat_pose_robot = np.eye(4)
+        mat_pose_robot[:3,3] = xyz
+        mat_pose_robot[:3,:3] = R.from_quat(orientation_quat).as_matrix()
+
+        # transformation matrix
+        transformation_matrix = self.mat_robot2world
+        mat_pose_world = transformation_matrix@mat_pose_robot
+
+        # mat2vec
+        world_xyz = mat_pose_world[:3,3]
+        world_quat = R.from_matrix(mat_pose_world[:3,:3]).as_quat()
+        world_pose7d = np.hstack((world_xyz, world_quat))
+        return world_pose7d
+
     @timer_decorator
     def _execute(self, rekep_program_dir):
         # Load program info and constraints
@@ -196,7 +237,8 @@ class MainR2D2:
        
             # Generate actions for this stage
             next_subgoal = self._get_next_subgoal(from_scratch=self.first_iter)
-            print(f'next subgoal: {next_subgoal}')
+            print(f'next subgoal(world/camera): {next_subgoal}') # 假设subgoal是基于相机坐标系的
+            print(f'next subgoal(robot): {self.pose7d_world2robot(next_subgoal)}')
 
             # 维度对上了
             next_path = self._get_next_path(next_subgoal, from_scratch=self.first_iter)
@@ -490,7 +532,8 @@ if __name__ == "__main__":
     # newest_rekep_dir = '/home/ur5/rekep/Rekep4Real/vlm_query/2025-01-21_22-27-34_help_me_take_that_bottle_of_water'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-25_15-47-47_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-26_10-35-40_help_me_take_the_cube'
-    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-04_19-23-52_help_me_take_the_block'
+    # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-04_19-23-52_help_me_take_the_block'
+    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-06_13-41-37_help_me_take_the_block'
 
 
     main = MainR2D2(visualize=args.visualize)

@@ -239,7 +239,7 @@ class Camera:
 
 
 class RobotEnv:
-    def __init__(self, ip='192.168.1.201', port=30004):
+    def __init__(self, ip='192.168.0.201', port=30004):
         
          # 初始化真实机械臂环境
 
