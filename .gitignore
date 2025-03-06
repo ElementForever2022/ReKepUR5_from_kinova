@@ -5,5 +5,8 @@ data/
 vlm_query/
 chessboards/
 genesis/pybullet_ur5_gripper
+
 outputs/next*
-xlp_biaoding/img/
+xlp_biaoding/img
+xlp_biaoding/img_bf
+xlp_biaoding/img_rgbCornerPoint
