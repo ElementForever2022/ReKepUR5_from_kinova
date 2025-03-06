@@ -82,6 +82,11 @@ class MainR2D2:
         # self.kinova = KinovaRobot()
         self.robot_env = RobotEnv()
         self.env = R2D2Env(global_config['env'])
+
+        self.gripper_length = 0.180 # 工具长度
+        print('gripper length:', self.gripper_length,'m')
+        self.mat_gripper2ee = np.zeros(4)
+
         
         #替换
         # ik_solver = FrankaIKSolver(
@@ -291,7 +296,10 @@ class MainR2D2:
                 target_pos_robot = np.zeros(7)
                 target_pos_robot[3:] = R.from_matrix(mat_target_pos_robot[:3,:3]).as_quat()
                 target_pos_robot[:3] = mat_target_pos_robot[:3,3]
-                self._kinova_move_to_ee_pos(target_pos_robot)
+
+                # 
+
+                self._kinova_move_to_ee_pos(target_pos_robot) # 前往机器人base坐标系下的位置
                 
             self.all_actions.append(next_path)
             stage += 1
@@ -370,8 +378,99 @@ class MainR2D2:
         quat = quat[0]
         print('quat world:',quat)
         return np.concatenate([ee_pos_world, quat])
+
+    def euler_to_direction(roll, pitch, yaw, local_vector=np.array([1, 0, 0])):
+        """
+        将欧拉角转换为全局方向向量。
+        
+        参数：
+        - roll: 横滚角（绕 x 轴），单位：弧度
+        - pitch: 俯仰角（绕 y 轴），单位：弧度
+        - yaw: 偏航角（绕 z 轴），单位：弧度
+        - local_vector: 在夹爪局部坐标系中所选的参考向量，默认为 [1, 0, 0]（夹爪前向）
+        
+        返回：
+        - global_vector: 全局坐标系下的方向向量（单位向量）
+        """
+        # 构造各轴旋转矩阵（按照 Z-Y-X 顺序：yaw、pitch、roll）
+        Rz = np.array([
+            [np.cos(yaw), -np.sin(yaw), 0],
+            [np.sin(yaw),  np.cos(yaw), 0],
+            [0,           0,            1]
+        ])
+        
+        Ry = np.array([
+            [np.cos(pitch), 0, np.sin(pitch)],
+            [0,             1, 0],
+            [-np.sin(pitch),0, np.cos(pitch)]
+        ])
+        
+        Rx = np.array([
+            [1, 0,             0],
+            [0, np.cos(roll), -np.sin(roll)],
+            [0, np.sin(roll),  np.cos(roll)]
+        ])
+        
+        # 总旋转矩阵
+        R = Rz.dot(Ry).dot(Rx)
+        
+        # 将局部参考向量转换到全局坐标系
+        global_vector = R.dot(local_vector)
+        
+        # 归一化，确保为单位向量
+        norm = np.linalg.norm(global_vector)
+        if norm != 0:
+            global_vector = global_vector / norm
+        
+        return global_vector
     
+    def toolpos2gripperpos(self, tool_pos_mat):
+        pass
+
+    
+    def _kinova_move_to_tool_ee_pos(self, target_pos):
+        """
+        将工具末端移到base坐标系下的target_pos:[7D]
+        """
+        # 工具在base坐标系下的7D坐标
+        target_pos_tool = target_pos.copy()
+
+        target_quat = target_pos_tool[3:]
+        rotation = R.from_quat(target_quat)
+        angles_rad = rotation.as_euler('xyz')
+        # angles_deg = np.degrees(angles_rad)
+        target_pos_tool_6D = np.concatenate([target_pos[:3], angles_rad])
+        # 将target_pos转换为矩阵格式
+        target_pos_tool_mat = np.eye(4)
+        target_pos_tool_mat[:3,3] = target_pos_tool_6D[:3]
+        target_pos_tool_mat[:3,:3] = rotation.as_matrix()
+
+        # 将目标从工具转换到ee
+        target_pos_ee_mat = self.toolpos2gripperpos(target_pos_tool_mat)
+
+        # 将ee目标矩阵转换为6D向量
+        target_pos = np.zeros(6)
+        target_pos[:3] = target_pos_ee_mat[:3,3]
+        target_pos[3:] = R.from_matrix(target_pos_ee_mat[:3,:3]).as_euler('xyz')
+
+        # name each element in target_pos
+        target_pos = {
+            "x": target_pos[0],
+            "y": target_pos[1],
+            "z": target_pos[2],
+            "theta_x": target_pos[3],
+            "theta_y": target_pos[4],
+            "theta_z": target_pos[5]
+        }
+        # print(f'kinova move to {target_pos}')
+        # self.kinova.move_to_tool_position(target_pos)
+        # self.robot_env.step(target_pos,3)
+        self.robot_env.move_to_ee_pos(target_pos)
+
     def _kinova_move_to_ee_pos(self, target_pos):
+        """
+        前往机器人base坐标系下的位置, target_pos:[7D]
+        """
         target_quat = target_pos[3:]
         rotation = R.from_quat(target_quat)
         angles_rad = rotation.as_euler('xyz')
@@ -535,8 +634,28 @@ if __name__ == "__main__":
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-04_19-23-52_help_me_take_the_block'
     newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-06_13-41-37_help_me_take_the_block'
 
+    def euler_to_direction(roll, pitch, yaw, local_vector=np.array([0, 1, 0])):
+        """
+        将欧拉角转换为全局方向向量。
+        
+        参数：
+        - roll: 横滚角（绕 x 轴），单位：弧度
+        - pitch: 俯仰角（绕 y 轴），单位：弧度
+        - yaw: 偏航角（绕 z 轴），单位：弧度
+        - local_vector: 在夹爪局部坐标系中所选的参考向量，默认为 [1, 0, 0]（夹爪前向）
+        
+        返回：
+        - global_vector: 全局坐标系下的方向向量（单位向量）
+        """
+        # 构造各轴旋转矩阵（按照 Z-Y-X 顺序：yaw、pitch、roll）
+        rotation_mat = R.from_euler('xyz',np.array([roll,pitch,yaw])).as_matrix()
+        transformation_mat = np.eye(4)
+        transformation_mat[:3,:3] = rotation_mat
 
-    main = MainR2D2(visualize=args.visualize)
+        local_vector_col = np.array([[local_vector[0]],[local_vector[1]],[local_vector[2]],[1]])
+        return (transformation_mat@local_vector_col)[:3]
+    print(euler_to_direction(1.188,-2.789,-0.002))
+    # main = MainR2D2(visualize=args.visualize)
     # main._kinova_get_ee_pos()
     # main._kinova_get_ee_pos_world()
-    main.perform_task(instruction=args.instruction, rekep_program_dir=newest_rekep_dir)
+    # main.perform_task(instruction=args.instruction, rekep_program_dir=newest_rekep_dir)
