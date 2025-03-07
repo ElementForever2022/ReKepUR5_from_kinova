@@ -1,3 +1,8 @@
+# Our Reproduction of ReKep based on Tony's repo for Franka
+Our robotic arm is UR5e
+
+below are their original README content:
+
 # ReKep Reproduction at GRASP Lab
 
 12/21/2024
