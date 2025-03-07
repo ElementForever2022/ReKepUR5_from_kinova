@@ -83,7 +83,7 @@ class MainR2D2:
         self.robot_env = RobotEnv()
         self.env = R2D2Env(global_config['env'])
 
-        self.gripper_length = 0.180 # 工具长度
+        self.gripper_length = 0.240 # 工具长度
         print('gripper length:', self.gripper_length,'m')
         self.mat_gripper2ee = np.zeros(4)
 
@@ -213,14 +213,14 @@ class MainR2D2:
             # self.keypoints = np.concatenate([[self.env.get_ee_pos()], # 加一个方括号是为了把1D的array升成2D
             #                                  self.env.get_keypoint_positions()], axis=0)
             self.keypoints = np.concatenate([
-                [self._kinova_get_ee_pos_world()[:3]],
+                [self._kinova_get_tool_pos_world()[:3]],
                 self.env.get_keypoint_positions()
             ],axis=0)
             print(f"stage {int(stage)}: keypoints{self.keypoints}")
             # self.curr_ee_pose = self.env.get_ee_pose()  # TODO check, may be constant? 
             # self.curr_joint_pos = self.env.get_arm_joint_positions() 
             # self.curr_ee_pose = self._kinova_get_ee_pos()
-            self.curr_ee_pose = self._kinova_get_ee_pos_world()
+            self.curr_ee_pose = self._kinova_get_tool_pos_world()
             self.curr_joint_pos = self._kinova_get_joint_pos()
             # self.sdf_voxels = self.env.get_sdf_voxels(self.config['sdf_voxel_size']) # TODO ???
             self.collision_points = self.env.get_collision_points()
@@ -297,9 +297,11 @@ class MainR2D2:
                 target_pos_robot[3:] = R.from_matrix(mat_target_pos_robot[:3,:3]).as_quat()
                 target_pos_robot[:3] = mat_target_pos_robot[:3,3]
 
-                # 
+                # 如果需要grasp或者release, 末端执行器执行操作
+                # grasp=1, release=-1
+                self.robot_env.robot.gripper_control(next_path[i,7])
 
-                self._kinova_move_to_ee_pos(target_pos_robot) # 前往机器人base坐标系下的位置
+                self._kinova_move_to_tool_ee_pos(target_pos_robot) # 前往机器人base坐标系下的位置
                 
             self.all_actions.append(next_path)
             stage += 1
@@ -333,6 +335,7 @@ class MainR2D2:
         return joint_pos
     
     def _kinova_get_ee_pos(self):
+        # deprecated
         # ee_pos = self.kinova.get_tool_position()
         ee_pos = self.robot_env.robot.get_tcp_pose() # tool central pose 工具中心点
         angles = ee_pos[3:]
@@ -349,6 +352,7 @@ class MainR2D2:
     def _kinova_get_ee_pos_world(self):
         """
         获取ur5机器人的ee的7D坐标, [x,y,z,quat], 同时是在世界坐标系下(相机坐标系下)
+        deprecated
         """
         # 获取机器人ee在基座base坐标系下的原始坐标
         ee_pos = self.robot_env.robot.get_tcp_pose() # tool central pose 工具中心点
@@ -362,6 +366,41 @@ class MainR2D2:
         ee_matrix_base = np.eye(4)
         ee_matrix_base[:3,:3] = rotation.as_matrix()
         ee_matrix_base[:3,3] = ee_pos[:3]
+        # 获取变换矩阵
+        mat_robot2world = self.mat_robot2world
+        # 将ee矩阵从机器人坐标系变换到世界坐标系(相机坐标系)
+        ee_matrix_world = mat_robot2world@ee_matrix_base
+        # 将ee矩阵的旋转信息和位置信息解包出来
+        ee_pos_world = ee_matrix_world[:3,3] # 机器人ee在世界坐标系下的坐标[x,y,z]
+        ee_rotation_world = R.from_matrix(ee_matrix_world[:3,:3]) # 机器人ee在世界坐标系下的方向(转换为scipy标准形式)
+
+        # 将ee方向转换为四元数quat
+        print('ee_rotation_world:',ee_rotation_world.as_euler('xyz'))
+        print('ee_pos_world:',ee_pos_world)
+        quat = ee_rotation_world.as_quat()
+        quat = quat.reshape(1, -1)
+        quat = quat[0]
+        print('quat world:',quat)
+        return np.concatenate([ee_pos_world, quat])
+
+    def _kinova_get_tool_pos_world(self):
+        """
+        获取ur5机器人的tool的7D坐标, [x,y,z,quat], 同时是在世界坐标系下(相机坐标系下)
+        """
+        # 获取机器人ee在基座base坐标系下的原始坐标
+        ee_pos = self.robot_env.robot.get_tcp_pose() # tool central pose 工具中心点
+        angles = ee_pos[3:] # 机器人ee的方向(欧拉角,rad)
+        rotation = R.from_euler('xyz', angles) # 将欧拉角转换为scipy标准形式
+        print('angles:',angles)
+        print('rotation:', rotation.as_matrix())
+
+        # 将机器人ee的base坐标转换为世界坐标系
+        # 首先是把ee用4*4的矩阵表示
+        ee_matrix_base = np.eye(4)
+        ee_matrix_base[:3,:3] = rotation.as_matrix()
+        ee_matrix_base[:3,3] = ee_pos[:3]
+        # 将ee_matrix_base从机器人末端转换到工具末端
+        ee_matrix_base = self.eepos2toolpos(ee_matrix_base)
         # 获取变换矩阵
         mat_robot2world = self.mat_robot2world
         # 将ee矩阵从机器人坐标系变换到世界坐标系(相机坐标系)
@@ -424,8 +463,60 @@ class MainR2D2:
         
         return global_vector
     
-    def toolpos2gripperpos(self, tool_pos_mat):
-        pass
+    @staticmethod
+    def euler_to_direction(roll, pitch, yaw, local_vector=np.array([-1, 0, 0])):
+        """
+        将欧拉角转换为全局方向向量。
+        
+        参数：
+        - roll: 横滚角（绕 x 轴），单位：弧度
+        - pitch: 俯仰角（绕 y 轴），单位：弧度
+        - yaw: 偏航角（绕 z 轴），单位：弧度
+        - local_vector: 在夹爪局部坐标系中所选的参考向量，默认为 [1, 0, 0]（夹爪前向）
+        
+        返回：
+        - global_vector: 全局坐标系下的方向向量（单位向量）
+        """
+        # 构造各轴旋转矩阵（按照 Z-Y-X 顺序：yaw、pitch、roll）
+        rotation_mat = R.from_euler('xyz',np.array([roll,pitch,yaw])).as_matrix()
+        transformation_mat = np.eye(4)
+        transformation_mat[:3,:3] = rotation_mat
+
+        local_vector_col = np.array([[local_vector[0]],[local_vector[1]],[local_vector[2]],[1]])
+        direction_vec = (transformation_mat@local_vector_col)[:3][:,0]
+        print(f'\ntool pointing at {direction_vec}')
+        return direction_vec
+
+    def toolpos2eepos(self, tool_pos_mat):
+        """
+        将工具末端坐标转换到机器人末端坐标
+        """
+        # 得到工具末端方向
+        rotation_mat = tool_pos_mat[:3,:3]
+        rotation_euler = R.from_matrix(rotation_mat).as_euler('xyz')
+        # 得到回退向量
+        tool_direction = self.euler_to_direction(rotation_euler[0], rotation_euler[1], rotation_euler[2])
+        traceback_vector = -self.gripper_length*tool_direction
+
+        # 将回退向量加到tool_pos_mat上
+        ee_pos_mat = tool_pos_mat.copy()
+        ee_pos_mat[:3,3] += traceback_vector
+        return ee_pos_mat
+    def eepos2toolpos(self, ee_pos_mat):
+        """
+        将机器人末端坐标转换到工具包末端坐标
+        """
+        # 得到机器人末端方向
+        rotation_mat = ee_pos_mat[:3,:3]
+        rotation_euler = R.from_matrix(rotation_mat).as_euler('xyz')
+        # 得到前进向量
+        tool_direction = self.euler_to_direction(rotation_euler[0], rotation_euler[1], rotation_euler[2])
+        traceforward_vector = self.gripper_length*tool_direction
+
+        # 将回退向量加到ee_pos_mat上
+        tool_pos_mat = ee_pos_mat.copy()
+        tool_pos_mat[:3,3] += traceforward_vector
+        return tool_pos_mat
 
     
     def _kinova_move_to_tool_ee_pos(self, target_pos):
@@ -446,7 +537,7 @@ class MainR2D2:
         target_pos_tool_mat[:3,:3] = rotation.as_matrix()
 
         # 将目标从工具转换到ee
-        target_pos_ee_mat = self.toolpos2gripperpos(target_pos_tool_mat)
+        target_pos_ee_mat = self.toolpos2eepos(target_pos_tool_mat)
 
         # 将ee目标矩阵转换为6D向量
         target_pos = np.zeros(6)
@@ -465,10 +556,13 @@ class MainR2D2:
         # print(f'kinova move to {target_pos}')
         # self.kinova.move_to_tool_position(target_pos)
         # self.robot_env.step(target_pos,3)
+        print(f'robot ee moving to {target_pos}')
+        print(f'robot tool tip moving to {target_pos_tool_6D}')
         self.robot_env.move_to_ee_pos(target_pos)
 
     def _kinova_move_to_ee_pos(self, target_pos):
         """
+        deprecated
         前往机器人base坐标系下的位置, target_pos:[7D]
         """
         target_quat = target_pos[3:]
@@ -581,12 +675,14 @@ class MainR2D2:
     def _update_stage(self, stage):
         # update stage
         self.stage = stage
+        print(f'current stage:{self.stage}')
         self.is_grasp_stage = self.program_info['grasp_keypoints'][self.stage - 1] != -1
         self.is_release_stage = self.program_info['release_keypoints'][self.stage - 1] != -1
         # can only be grasp stage or release stage or none
         assert self.is_grasp_stage + self.is_release_stage <= 1, "Cannot be both grasp and release stage"
         if self.is_grasp_stage:  # ensure gripper is open for grasping stage
             self.env.open_gripper()
+            # self.robot_env.robot.control_gripper(0.0)
         # clear action queue
         self.action_queue = []
         # update keypoint movable mask
@@ -632,30 +728,11 @@ if __name__ == "__main__":
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-25_15-47-47_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-26_10-35-40_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-04_19-23-52_help_me_take_the_block'
-    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-06_13-41-37_help_me_take_the_block'
+    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-07_13-13-36_help_me_grasp_the_plastic_bottle_and_move_up'
 
-    def euler_to_direction(roll, pitch, yaw, local_vector=np.array([0, 1, 0])):
-        """
-        将欧拉角转换为全局方向向量。
-        
-        参数：
-        - roll: 横滚角（绕 x 轴），单位：弧度
-        - pitch: 俯仰角（绕 y 轴），单位：弧度
-        - yaw: 偏航角（绕 z 轴），单位：弧度
-        - local_vector: 在夹爪局部坐标系中所选的参考向量，默认为 [1, 0, 0]（夹爪前向）
-        
-        返回：
-        - global_vector: 全局坐标系下的方向向量（单位向量）
-        """
-        # 构造各轴旋转矩阵（按照 Z-Y-X 顺序：yaw、pitch、roll）
-        rotation_mat = R.from_euler('xyz',np.array([roll,pitch,yaw])).as_matrix()
-        transformation_mat = np.eye(4)
-        transformation_mat[:3,:3] = rotation_mat
-
-        local_vector_col = np.array([[local_vector[0]],[local_vector[1]],[local_vector[2]],[1]])
-        return (transformation_mat@local_vector_col)[:3]
-    print(euler_to_direction(1.188,-2.789,-0.002))
-    # main = MainR2D2(visualize=args.visualize)
+    
+    main = MainR2D2(visualize=args.visualize)
+    # print(main.euler_to_direction(1.188,-2.789,-0.002))
     # main._kinova_get_ee_pos()
     # main._kinova_get_ee_pos_world()
-    # main.perform_task(instruction=args.instruction, rekep_program_dir=newest_rekep_dir)
+    main.perform_task(instruction=args.instruction, rekep_program_dir=newest_rekep_dir)

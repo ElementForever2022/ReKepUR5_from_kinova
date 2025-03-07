@@ -576,7 +576,7 @@ class ur5Robot:
                 time.sleep(1)
         watchdog_thread = threading.Thread(target=communicate)
         watchdog_thread.daemon = True # 守护进程
-        # watchdog_thread.start() # 开启该进程
+        watchdog_thread.start() # 开启该进程
 
 
 
@@ -659,14 +659,18 @@ class ur5Robot:
 
     def gripper_control(self, gripper_state):
         """
-        控制夹爪
+        控制夹爪 1=grasp(半夹), 0=close, -1=open/release
         """
         dist_1 = abs(gripper_state - 1)
         dist_0 = abs(gripper_state - 0)
-        if dist_1 < dist_0:
+        dist_b1 = abs(gripper_state + 1)
+        min_dist = min([dist_1, dist_0, dist_b1])
+        if min_dist==dist_1:
             self.gripper.grasp()
-        elif dist_0 < dist_1:
+        elif min_dist==dist_0:
             self.gripper.close()
+        elif min_dist==dist_b1:
+            self.gripper.open()
         else:
             print(f"Invalid gripper state:{gripper_state}")
 
