@@ -83,7 +83,8 @@ class MainR2D2:
         self.robot_env = RobotEnv()
         self.env = R2D2Env(global_config['env'])
 
-        self.gripper_length = 0.240 # 工具长度
+        # self.gripper_length = 0.240 # 工具长度
+        self.gripper_length = 0.270 # 工具长度
         print('gripper length:', self.gripper_length,'m')
         self.mat_gripper2ee = np.zeros(4)
 
@@ -728,7 +729,7 @@ if __name__ == "__main__":
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-25_15-47-47_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-26_10-35-40_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-04_19-23-52_help_me_take_the_block'
-    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-07_13-13-36_help_me_grasp_the_plastic_bottle_and_move_up'
+    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-11_15-45-05_help_me_grasp_the_paper_box_and_move_up'
 
     
     main = MainR2D2(visualize=args.visualize)

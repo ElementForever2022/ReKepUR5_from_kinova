@@ -72,7 +72,7 @@ class RobotController:
             }
         }
         
-        self.current_joint_angles = np.zeros(7)
+        # self.current_joint_angles = np.zeros(7)
         self.current_ee_pose = np.array([0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.0])
         self.current_eef_position = np.array([0.5, 0.0, 0.5]) 
         self.world2robot_homo = np.eye(4)  
@@ -147,11 +147,11 @@ class R2D2Env:
         with open(self.robot_state_path, 'r') as f:
             robot_state = json.load(f)
             
-        self.current_joint_angles = np.array(robot_state['joint_info']['joint_positions'])
+        # self.current_joint_angles = np.array(robot_state['joint_info']['joint_positions'])
         
-        self.ee_position = np.array(robot_state['ee_info']['position'])
-        self.ee_orientation = np.array(robot_state['ee_info']['orientation'])
-        self.ee_pose = np.concatenate([self.ee_position, self.ee_orientation])
+        # self.ee_position = np.array(robot_state['ee_info']['position'])
+        # self.ee_orientation = np.array(robot_state['ee_info']['orientation'])
+        # self.ee_pose = np.concatenate([self.ee_position, self.ee_orientation])
         
         self.gripper_state = robot_state['gripper_info']['state']
         
@@ -189,15 +189,16 @@ class R2D2Env:
         rot_diff = angle_between_quats(ee_xyzw, target_xyzw)
         return pos_diff, rot_diff
     
-    def get_arm_joint_positions(self):
-        """
-        Mock version of get_arm_joint_positions that returns simulated joint positions
+    # def get_arm_joint_positions(self):
+    #     """
+    #     Mock version of get_arm_joint_positions that returns simulated joint positions
         
-        Returns:
-            np.ndarray: Array of 7 joint positions for a 7-DOF arm
-            [torso_lift, shoulder_pan, shoulder_lift, upperarm_roll, elbow_flex, forearm_roll, wrist_flex]
-        """
-        return self.current_joint_angles
+    #     Returns:
+    #         np.ndarray: Array of 7 joint positions for a 7-DOF arm
+    #         [torso_lift, shoulder_pan, shoulder_lift, upperarm_roll, elbow_flex, forearm_roll, wrist_flex]
+    #     """
+    #     return self.current_joint_angles
+
         # # Return mock joint positions within reasonable ranges
         # mock_joint_positions = np.array([
         #     0.0,    # torso_lift   (-0.1, 0.4)
@@ -462,7 +463,7 @@ class R2D2Env:
         gripper_action = action[7]
         
         # 更新状态
-        self.current_joint_angles = joint_angles
+        # self.current_joint_angles = joint_angles
         self.gripper_state = gripper_action
         
         # 通过正运动学更新末端执行器位置（在实际应用中需要从真实机器人读取）
