@@ -1,6 +1,0 @@
-def stage1_subgoal_constraint1(end_effector, keypoints):
-    """Align the end-effector with the cube (keypoint 0)."""
-    cube_keypoint = keypoints[0]  # Keypoint 0 corresponds to the cube
-    cost = np.linalg.norm(end_effector - cube_keypoint)  # Minimize distance between end-effector and cube
-    return cost
-

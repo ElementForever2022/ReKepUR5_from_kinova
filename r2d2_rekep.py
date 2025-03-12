@@ -84,7 +84,7 @@ class MainR2D2:
         self.env = R2D2Env(global_config['env'])
 
         # self.gripper_length = 0.240 # 工具长度
-        self.gripper_length = 0.270 # 工具长度
+        self.gripper_length = 0.180 # 工具长度
         print('gripper length:', self.gripper_length,'m')
         self.mat_gripper2ee = np.zeros(4)
 
@@ -243,11 +243,13 @@ class MainR2D2:
        
             # Generate actions for this stage
             next_subgoal = self._get_next_subgoal(from_scratch=self.first_iter)
+            next_subgoal_robot = self.pose7d_world2robot(next_subgoal)
             print(f'next subgoal(world/camera): {next_subgoal}') # 假设subgoal是基于相机坐标系的
             print(f'next subgoal(robot): {self.pose7d_world2robot(next_subgoal)}')
 
-            # 维度对上了
+            # 输出路径
             next_path = self._get_next_path(next_subgoal, from_scratch=self.first_iter)
+            next_path_robot = [self.pose7d_world2robot(pose[:7]) for pose in next_path]
             self.first_iter = False
 
             # 将subgoal和path输出到文件中
@@ -264,10 +266,12 @@ class MainR2D2:
             subgoal_file_path = f'{output_dir}next_subgoals_{timestamp}'
             next_path_file_path = f'{output_dir}next_paths_{timestamp}'
             with open(subgoal_file_path,'a') as f:
-                f.write(f'{next_subgoal}\n')
+                f.write(f'world/camera:\n\t{next_subgoal}\n')
+                f.write(f'robot:\n\t {next_subgoal_robot}\n')
                 print(f'subgoal written to {subgoal_file_path}')
             with open(next_path_file_path,'a') as f:
-                f.write(f'{next_path}\n')
+                f.write(f'world/camera:\n\t{next_path}\n')
+                f.write(f'robot:\n\t{next_path_robot}')
                 print(f'next path written to {next_path_file_path}')
 
             # pdb.set_trace()
@@ -278,6 +282,10 @@ class MainR2D2:
                 
             # elif self.is_release_stage:
             #     next_path[-1, 7] = self.env.get_gripper_open_action() 
+
+            print('ready to go?')
+            input()
+            print('READY!!!')
                 
             for i in range(next_path.shape[0]):
                 if self.is_grasp_stage:
@@ -290,13 +298,14 @@ class MainR2D2:
             for i in range(next_path.shape[0]):
                 target_pos_world = next_path[i, :7]
                 # 将世界坐标系的位置转换为机器人坐标系的位置
-                mat_target_pos_world = np.eye(4)
-                mat_target_pos_world[:3,:3] = R.from_quat(target_pos_world[3:]).as_matrix()
-                mat_target_pos_world[:3,3] = target_pos_world[:3]
-                mat_target_pos_robot = self.mat_world2robot@mat_target_pos_world
-                target_pos_robot = np.zeros(7)
-                target_pos_robot[3:] = R.from_matrix(mat_target_pos_robot[:3,:3]).as_quat()
-                target_pos_robot[:3] = mat_target_pos_robot[:3,3]
+                # mat_target_pos_world = np.eye(4)
+                # mat_target_pos_world[:3,:3] = R.from_quat(target_pos_world[3:]).as_matrix()
+                # mat_target_pos_world[:3,3] = target_pos_world[:3]
+                # mat_target_pos_robot = self.mat_world2robot@mat_target_pos_world
+                # target_pos_robot = np.zeros(7)
+                # target_pos_robot[3:] = R.from_matrix(mat_target_pos_robot[:3,:3]).as_quat()
+                # target_pos_robot[:3] = mat_target_pos_robot[:3,3]
+                target_pos_robot = self.pose7d_world2robot(target_pos_world)
 
                 # 如果需要grasp或者release, 末端执行器执行操作
                 # grasp=1, release=-1
@@ -465,7 +474,7 @@ class MainR2D2:
         return global_vector
     
     @staticmethod
-    def euler_to_direction(roll, pitch, yaw, local_vector=np.array([-1, 0, 0])):
+    def euler_to_direction(roll, pitch, yaw, local_vector=np.array([0, 0, 1])):
         """
         将欧拉角转换为全局方向向量。
         
@@ -496,8 +505,12 @@ class MainR2D2:
         rotation_mat = tool_pos_mat[:3,:3]
         rotation_euler = R.from_matrix(rotation_mat).as_euler('xyz')
         # 得到回退向量
-        tool_direction = self.euler_to_direction(rotation_euler[0], rotation_euler[1], rotation_euler[2])
-        traceback_vector = -self.gripper_length*tool_direction
+        # tool_direction = self.euler_to_direction(rotation_euler[0], rotation_euler[1], rotation_euler[2])
+        # traceback_vector = -self.gripper_length*tool_direction
+        local_tool_vec = np.array([[0],[0],[self.gripper_length]])
+        traceback_vector = -rotation_mat@local_tool_vec
+        traceback_vector = traceback_vector[:,0] # 2D to 1D
+        print(f'trace back vector:{traceback_vector}')
 
         # 将回退向量加到tool_pos_mat上
         ee_pos_mat = tool_pos_mat.copy()
@@ -511,8 +524,11 @@ class MainR2D2:
         rotation_mat = ee_pos_mat[:3,:3]
         rotation_euler = R.from_matrix(rotation_mat).as_euler('xyz')
         # 得到前进向量
-        tool_direction = self.euler_to_direction(rotation_euler[0], rotation_euler[1], rotation_euler[2])
-        traceforward_vector = self.gripper_length*tool_direction
+        # tool_direction = self.euler_to_direction(rotation_euler[0], rotation_euler[1], rotation_euler[2])
+        # traceforward_vector = self.gripper_length*tool_direction
+        local_tool_vec = np.array([[0],[0],[self.gripper_length]])
+        traceforward_vector = rotation_mat@local_tool_vec
+        traceforward_vector = traceforward_vector[:,0] # 2D to 1D
 
         # 将回退向量加到ee_pos_mat上
         tool_pos_mat = ee_pos_mat.copy()
@@ -729,11 +745,32 @@ if __name__ == "__main__":
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-25_15-47-47_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-26_10-35-40_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-04_19-23-52_help_me_take_the_block'
-    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-11_15-45-05_help_me_grasp_the_paper_box_and_move_up'
+    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-12_12-30-26_help_me_grasp_the_white_cube_and_move_up'
 
     
     main = MainR2D2(visualize=args.visualize)
-    # print(main.euler_to_direction(1.188,-2.789,-0.002))
-    # main._kinova_get_ee_pos()
-    # main._kinova_get_ee_pos_world()
     main.perform_task(instruction=args.instruction, rekep_program_dir=newest_rekep_dir)
+
+    # def rxryrz2mat(rx,ry,rz,s):
+    #     rot = R.from_euler(s,np.array([rx,ry,rz]))
+    #     return rot.as_matrix()
+
+    # ss = ['xyz','xzy','yxz','yzx','zxy','zyx']
+    # for s in ss:
+    #     print(s)
+    #     vec = np.array([[0],[0],[1]])
+    #     rx,ry,rz = 2.859,0.258,1.201
+    #     x,y,z = 0.717,0,-0.717
+    #     b = np.array([x,y,z])
+    #     rotation_matrix = rxryrz2mat(rx,ry,rz,s)
+    #     print('rotation matrix:\n',rotation_matrix)
+    #     rotated_vector = rotation_matrix@vec
+    #     print('rotated matrix:\n',rotated_vector)
+    #     print('coeff(A):\n',rotation_matrix)
+    #     print('bias(b):\n',b)
+    #     print('solution(X):\n',np.linalg.solve(rotation_matrix,b))
+        
+    #     tcp = np.array([-0.42,-0.192,0.281])
+    #     tool_tcp = tcp+rotated_vector[:,0]*0.18
+    #     print('tool tcp:\n',tool_tcp)
+    #     print()

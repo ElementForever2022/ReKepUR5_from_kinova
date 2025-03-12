@@ -1,7 +1,0 @@
-def stage3_subgoal_constraint1(end_effector, keypoints):
-    """The pen (keypoint 2) is placed on the cube (keypoint 1)."""
-    cube_keypoint = keypoints[1]
-    pen_keypoint = keypoints[2]
-    cost = np.linalg.norm(pen_keypoint - cube_keypoint)
-    return cost
-

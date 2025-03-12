@@ -1,8 +1,0 @@
-def stage1_path_constraint1(end_effector, keypoints):
-    """
-    Ensure the robot continues to hold the bowl during the pouring process.
-    This can be achieved by keeping the end-effector aligned with the bowl's keypoint (e.g., keypoint 48).
-    """
-    cost = np.linalg.norm(end_effector - keypoints[49])
-    return cost
-

@@ -1,7 +1,0 @@
-def stage2_subgoal_constraint1(end_effector, keypoints):
-    """The drawer (keypoint 21) should be aligned with the closed position (keypoint 23)."""
-    closed_position = keypoints[23]
-    drawer_position = keypoints[21]
-    cost = np.linalg.norm(drawer_position - closed_position)
-    return cost
-

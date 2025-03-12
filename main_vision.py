@@ -67,13 +67,14 @@ class MainVision:
         # D435i 的默认内参（你可以根据实际情况修改这些值）
         class RS_Intrinsics:
             def __init__(self):
-                self.fx = 386.738  # focal length x
-                self.fy = 386.738  # focal length y
-                self.ppx = 319.5   # principal point x
-                self.ppy = 239.5   # principal point y
+                self.fx = 607.47912598  # focal length x
+                self.fy = 607.46105957  # focal length y
+                self.ppx = 317.90200806   # principal point x
+                self.ppy = 243.5302124   # principal point y
                 
         intrinsics = RS_Intrinsics()
         depth_scale = 0.001  # D435i默认深度比例，1mm
+
 
         return intrinsics, depth_scale
 

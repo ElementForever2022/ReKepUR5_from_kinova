@@ -1,8 +1,0 @@
-def stage2_subgoal_constraint1(end_effector, keypoints):
-    """The pen (keypoint 2) is aligned 10cm above the cube (keypoint 1)."""
-    cube_keypoint = keypoints[1]
-    offsetted_point = cube_keypoint + np.array([0, 0, 0.1])  # 10cm above the cube
-    pen_keypoint = keypoints[2]
-    cost = np.linalg.norm(pen_keypoint - offsetted_point)
-    return cost
-

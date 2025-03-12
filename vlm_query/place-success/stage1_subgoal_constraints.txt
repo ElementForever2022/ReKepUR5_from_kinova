@@ -1,6 +1,0 @@
-def stage1_subgoal_constraint1(end_effector, keypoints):
-    """Align the end-effector with the pasta bag keypoint (keypoint 17)."""
-    pasta_bag_keypoint = keypoints[17]
-    cost = np.linalg.norm(end_effector - pasta_bag_keypoint)
-    return cost
-

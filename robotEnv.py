@@ -49,24 +49,24 @@ class Cameras:
         # 将view映射到serial number
         self.view2serial_number = {
             'global': connected_devices[0],
-            # 'wrist': connected_devices[1]
+            'wrist': connected_devices[1]
         }
         # 将serial number映射到view
         self.serial_number2view = {
             connected_devices[0]: 'global',
-            # connected_devices[1]: 'wrist'
+            connected_devices[1]: 'wrist'
         }
         
         # initialize cameras
         print('Initializing cameras...')
         self.global_camera = Camera(self.view2serial_number['global'])
-        # self.wrist_camera = Camera(self.view2serial_number['wrist'])
+        self.wrist_camera = Camera(self.view2serial_number['wrist'])
         time.sleep(2.5) # 等待相机初始化完成
         print('done')
         # 将view映射到camera对象
         self.view2camera = {
             'global': self.global_camera,
-            # 'wrist': self.wrist_camera
+            'wrist': self.wrist_camera
         }
 
 # camera class
@@ -258,7 +258,7 @@ class RobotEnv:
         self.view2camera = self.cameras.view2camera # 将view映射到camera对象
 
         self.global_camera = self.view2camera['global']
-        # self.wrist_camera = self.view2camera['wrist']
+        self.wrist_camera = self.view2camera['wrist']
 
         # 实时将tcp_pose更新
         self.tcp_pose = np.zeros(6)
@@ -275,6 +275,10 @@ class RobotEnv:
 
         #？？？pass干什么的？
         pass
+
+    def __del__(self):
+        self.robot.__del__()
+
 
     def reset(self, seed=None):
         # 重置环境到初始状态
@@ -451,6 +455,9 @@ class RobotEnv:
         """
         return self.global_camera.get_rgb_frame()
     
+    def get_tcp_pose(self):
+        return self.robot.get_tcp_pose()
+    
     def realtime_shoot(self):
         def button_detect():
             def on_press(key):
@@ -525,6 +532,10 @@ class ur5Robot:
         self.__connect()
         # self.is_connected = False  
          
+    def __del__(self):
+        self.gripper.__del__()
+        print('robot destroyed')
+
 
     def __connect(self):
         # 连接
@@ -794,6 +805,7 @@ class Gripper:
         print("Gripper initialized")
     
     def __del__(self):
+        print('gripper destroyed')
         self.ser.write(self.MOTOR_CLOSE_LIST)
         self.ser.close()
 

@@ -1,5 +1,0 @@
-def stage4_path_constraint1(end_effector, keypoints):
-    """The robot must still be grasping the second pen (keypoint 3)."""
-    cost = np.linalg.norm(end_effector - keypoints[3])
-    return cost
-
