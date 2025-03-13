@@ -92,6 +92,43 @@ def debug_decorator(head_message:str='', tail_message:str='done', color_name:str
         return wrapper
     return decorator
 
+def print_debug(*args, color_name:str='COLOR_WHITE', bold:bool=True, newline:bool=True):
+    """
+    print a single line of debug message
+
+    inputs:
+        - color_name:str(must in __NAMES_OF_COLORS), color of debug message
+        - bold:bool(default True), whether outputlog is bold
+        - newline:bool(default True), whether to start a new line
+    outputs:
+        None
+    """
+    # check whether "color" is valid
+    if color_name not in __NAMES_OF_COLORS:
+        # raise invalid color excetion
+        raise Exception(f'Invalid color:{color_name}. Valid color includes:{__NAMES_OF_COLORS}')
+    # cvt color name into color ANSI api
+    color = eval(color_name)
+
+    # check whether output is bold
+    if bold:
+        bold_ansl = BOLD # bold ANSI instruction
+    else:
+        bold_ansl = '' # empty string
+
+    # stack output string
+    list_args_string = [f'{arg}' for arg in args]
+    debug_string = ' '.join(list_args_string)
+
+    if newline:
+        # print and start a new line
+        print(f"{color}{bold_ansl}[DEBUG] {debug_string}{RESET}")
+    else:
+        # print and not start a new line
+        print(f"{color}{bold_ansl}[DEBUG] {debug_string}{RESET}",end='')
+
+
 
 if __name__ == '__main__':
-    pass
+    import numpy as np
+    print_debug('123','113',np.array([[12,12,12],[1,1,1]]), color_name='COLOR_RED')

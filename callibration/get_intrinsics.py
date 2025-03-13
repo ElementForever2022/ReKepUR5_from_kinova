@@ -10,3 +10,10 @@ import pyrealsense2 as rs # camera
 
 import time, datetime # get current time
 import os, pathlib # file path
+
+class IntrinsicsCalculator(object):
+    """
+    the Main class of intrinsics calculation
+    """
+    # def __inti__(self, )
+    pass
