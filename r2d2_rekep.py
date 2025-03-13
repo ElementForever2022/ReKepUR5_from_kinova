@@ -84,7 +84,8 @@ class MainR2D2:
         self.env = R2D2Env(global_config['env'])
 
         # self.gripper_length = 0.240 # 工具长度
-        self.gripper_length = 0.180 # 工具长度
+        # self.gripper_length = 0.180 # 工具长度
+        self.gripper_length = 0.160 # 工具长度
         print('gripper length:', self.gripper_length,'m')
         self.mat_gripper2ee = np.zeros(4)
 
@@ -505,11 +506,10 @@ class MainR2D2:
         rotation_mat = tool_pos_mat[:3,:3]
         rotation_euler = R.from_matrix(rotation_mat).as_euler('xyz')
         # 得到回退向量
-        # tool_direction = self.euler_to_direction(rotation_euler[0], rotation_euler[1], rotation_euler[2])
-        # traceback_vector = -self.gripper_length*tool_direction
-        local_tool_vec = np.array([[0],[0],[self.gripper_length]])
-        traceback_vector = -rotation_mat@local_tool_vec
-        traceback_vector = traceback_vector[:,0] # 2D to 1D
+        # local_tool_vec = np.array([[0],[0],[self.gripper_length]])
+        # traceback_vector = -rotation_mat@local_tool_vec
+        # traceback_vector = traceback_vector[:,0] # 2D to 1D
+        traceback_vector = -self.gripper_length*self.robot_env.get_tip_direction()
         print(f'trace back vector:{traceback_vector}')
 
         # 将回退向量加到tool_pos_mat上
@@ -526,9 +526,10 @@ class MainR2D2:
         # 得到前进向量
         # tool_direction = self.euler_to_direction(rotation_euler[0], rotation_euler[1], rotation_euler[2])
         # traceforward_vector = self.gripper_length*tool_direction
-        local_tool_vec = np.array([[0],[0],[self.gripper_length]])
-        traceforward_vector = rotation_mat@local_tool_vec
-        traceforward_vector = traceforward_vector[:,0] # 2D to 1D
+        # local_tool_vec = np.array([[0],[0],[self.gripper_length]])
+        # traceforward_vector = rotation_mat@local_tool_vec
+        # traceforward_vector = traceforward_vector[:,0] # 2D to 1D
+        traceforward_vector = self.gripper_length*self.robot_env.get_tip_direction()
 
         # 将回退向量加到ee_pos_mat上
         tool_pos_mat = ee_pos_mat.copy()
@@ -745,7 +746,7 @@ if __name__ == "__main__":
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-25_15-47-47_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-26_10-35-40_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-04_19-23-52_help_me_take_the_block'
-    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-12_12-30-26_help_me_grasp_the_white_cube_and_move_up'
+    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-12_19-15-07_help_me_grasp_the_rectangular_cake_and_drop_it_on_the_pen_tip'
 
     
     main = MainR2D2(visualize=args.visualize)

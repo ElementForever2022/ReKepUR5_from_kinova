@@ -273,11 +273,49 @@ class RobotEnv:
         self.tcp_manager_thread.daemon = True
         self.tcp_manager_thread.start()
 
-        #？？？pass干什么的？
+        self.alphas = [np.pi/2,0,0,np.pi/2,-np.pi/2,0]
+
         pass
 
     def __del__(self):
         self.robot.__del__()
+    
+    def get_joint_positions(self):
+        """
+        得到当前机器人系统的各关节角度 in rad
+        """
+        return np.array(self.robot.get_joint_positions())
+
+    def get_tip_direction(self, local_vector=np.array([0,0,1])):
+        """
+        得到当前机器人的工具尖端方向向量(norm=1)
+        """
+        def at2rotmat(alpha,theta):
+            """
+            根据机器人的alpha和theta得到变换矩阵
+            """
+            return np.array([
+                [np.cos(theta),-np.sin(theta)*np.cos(alpha),np.sin(theta)*np.sin(alpha)],
+                [np.sin(theta),np.cos(theta)*np.cos(alpha),-np.cos(theta)*np.sin(alpha)],
+                [0,np.sin(alpha),np.cos(alpha)]
+            ])
+        # 得到当前各关节角度
+        six_joints_np = self.get_joint_positions()
+        thetas = [theta for theta in six_joints_np]
+
+        # 得到各关节的方向转换矩阵
+        Ts = [
+            at2rotmat(alpha, theta) for alpha,theta in zip(self.alphas,thetas)
+        ]
+        transformation_matrix = np.eye(3)
+        for T_mat in Ts:
+            transformation_matrix = transformation_matrix@T_mat
+        
+        local_vector_col = np.array([local_vector]).T # 1D to 2D
+        rotated_vector = transformation_matrix@local_vector_col
+        rotated_vector = rotated_vector[:,0] # 2D to 1D
+
+        return rotated_vector
 
 
     def reset(self, seed=None):

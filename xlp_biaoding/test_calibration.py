@@ -120,7 +120,7 @@ def get_matrix(color_image, aligned_depth_frame):
     # r2b_tvecs = np.array([ -0.39, -0.184, 0.0027])#注意单位是M
     # r2b_tvecs = np.array([ -0.392, -0.182, 0])#注意单位是M
     # r2b_tvecs = np.array([ -0.358, -0.678, 0])#注意单位是M
-    r2b_tvecs = np.array([ -0.202, -0.5535, 0])#注意单位是M
+    r2b_tvecs = np.array([ -0.204, -0.551, 0])#注意单位是M
 
     robot_to_board = convert_to_transformation_matrix(r2b_rvecs, r2b_tvecs)
     print("（机器人到棋盘格）robot_to_board_martix:",robot_to_board)
@@ -269,9 +269,9 @@ def main():
 #             robot_to_camera = np.array(   [[ 0.7428856 ,  0.6649443 , -0.07726622,  0.4061438 ],
 #  [ 0.34531505, -0.47953224, -0.80672569, -0.04588071],
 #  [-0.5734793 ,  0.57262371, -0.58585287,  0.71021023],
-            robot_to_camera = np.array(  [[ 0.73171489,  0.67884075, -0.06138851,  0.42306849],
- [ 0.42384717, -0.52368793, -0.73898886, -0.02885738],
- [-0.53380417,  0.51470981, -0.67091499,  0.7398671 ],
+            robot_to_camera = np.array(  [[ 0.72718349,  0.68370615, -0.06123775,  0.42321933],
+ [ 0.42804643, -0.52138453, -0.73819674, -0.02356481],
+ [-0.53663807,  0.51059188, -0.67180021,  0.73427908],
  [ 0.        ,  0.        ,  0.        ,  1.        ]])
             robot_coords = pixel_to_robot(x, y, depth, camera_matrix, robot_to_camera)
             rx = robot_coords[0, 0]
