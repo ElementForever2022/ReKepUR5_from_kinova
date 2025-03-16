@@ -180,6 +180,10 @@ class CameraManager(object):
         inputs:
             exit_key: str, key to exit the viewer
         """
+        # get cameras
+        global_camera = self.__get_camera('global')
+        wrist_camera = self.__get_camera('wrist')
+
         # create a "black screen"
         screen = np.zeros((self.height*2, self.width*2, 3), dtype=np.uint8)
 
@@ -194,10 +198,18 @@ class CameraManager(object):
         # keep looping until the specific exit key is pressed
         while True:
             # get color and depth image(_depth_image and _aligned_depth_frame are to be discarded)
-            global_color_image = self.get_global_color_image()
-            wrist_color_image = self.get_wrist_color_image()
-            global_colorized_depth_image = self.get_global_colorized_depth_image()
-            wrist_colorized_depth_image = self.get_wrist_colorized_depth_image()
+            if global_camera is not None:
+                global_color_image = global_camera.get_color_image()
+                global_colorized_depth_image = global_camera.get_colorized_depth_image()
+            else:
+                global_color_image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+                global_colorized_depth_image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+            if wrist_camera is not None:
+                wrist_color_image = wrist_camera.get_color_image()
+                wrist_colorized_depth_image = wrist_camera.get_colorized_depth_image()
+            else:
+                wrist_color_image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+                wrist_colorized_depth_image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
             
             # "stick" the images onto the screen
             screen[:self.height, :self.width, :] = global_color_image # global color image on the upper left
