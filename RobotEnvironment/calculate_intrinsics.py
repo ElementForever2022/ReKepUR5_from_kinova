@@ -13,13 +13,14 @@ import datetime # for time operations
 import os # for os operations
 
 class CalculateIntrinsics:
-    def __init__(self, pc_id:int, chessboard_shape:tuple[int],camera_position:str='global', save_dir:str="./intrinsics_images") -> None:
+    def __init__(self, pc_id:int, chessboard_shape:tuple[int], square_size:float ,camera_position:str='global', save_dir:str="./intrinsics_images") -> None:
         """
         initialize the class
 
         inputs:
             - pc_id: the id of the pc
             - chessboard_shape: (x,y) of chessboard CROSS-CORNERS, like a (9,6)-blocked chessboard oughted to be (8,5) as input
+            - square_size: float, side length of a square(in METERS)
             - camera_position: the position of the camera['global', 'wrist']
             - save_dir: the directory path where the captured images will be saved, default is './intrinsics_images'
         """
@@ -38,6 +39,8 @@ class CalculateIntrinsics:
 
         # chessboard shape
         self.chessboard_shape = chessboard_shape
+        # square size
+        self.square_size = square_size
 
         # print debug information
         print_debug(f'camera position:{self.camera_position}', color_name='COLOR_YELLOW')
@@ -45,6 +48,7 @@ class CalculateIntrinsics:
         print_debug(f'camera resolution: {self.width}x{self.height}', color_name='COLOR_YELLOW')
         print_debug(f'save path: {self.save_path}', color_name='COLOR_YELLOW')
         print_debug(f'chessboard shape: {self.chessboard_shape}', color_name='COLOR_YELLOW')
+        print_debug(f'square size: {self.square_size} meter', color_name='COLOR_YELLOW')
 
         # end of initialization
 
@@ -184,7 +188,48 @@ class CalculateIntrinsics:
 
 
     def calculate_intrinsics(self):
-        pass
+        """
+        calculate the intrinsics of the camera according to current save path
+        """
+        # get all files under save path
+        img_path_list = [str(pathlib.Path(img_path)) for img_path in pathlib.Path(self.save_path).glob('*')]
+
+        if len(img_path_list)<5:
+            print_debug('not enough images! at least 5 of them')
+            return
+        
+        # store all 3D and 2D points
+        obj_points_list = [] # 3d points in real world space
+        img_points_list = [] # 2d pixel points in image plane
+
+        # get the 3D points in real world space
+        # (they are the same in the whole directory)
+        obj_points = np.zeros((self.chessboard_shape[0]*self.chessboard_shape[1], 3), np.float32)
+        obj_points[:,:2] = np.mgrid[0:self.chessboard_shape[0], 0:self.chessboard_shape[1]].T.reshape(-1, 2)*self.square_size
+
+        # process all the images under save_path
+        for img_path in img_path_list:
+            # get the image ndarray
+            color_image = cv2.imread(img_path)
+            # detect corners
+            ret, corners_subpixel, _annotated_img = self.__detect_chessboard(color_image, self.chessboard_shape)
+
+            # if corners found, then add them to the list
+            if ret:
+                # add 3d points to the list
+                obj_points_list.append(obj_points)
+                # add 2d points to the list
+                img_points_list.append(corners_subpixel)
+        
+        # then use OpenCV API to calculate intrinsics
+        color_image_shape = (cv2.imread(img_path_list[0])).shape
+        ret, calculated_intrinsics_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
+            obj_points_list, img_points_list, (color_image_shape[1], color_image_shape[0]), None, None
+        )
+        # return calculated intrinsics matrix
+        return calculated_intrinsics_matrix
+          
+
 
     @staticmethod
     def __detect_chessboard(color_image: np.ndarray, chessboard_shape:tuple[int]):
@@ -196,7 +241,7 @@ class CalculateIntrinsics:
             - chessboard_shape: the shape of the chessboard, like a (9,6)-blocked chessboard oughted to be (8,5) as input
         outputs:
             - ret: bool, whether corners detected or not
-            - corners2: np.ndarray, the subpixel corners of the chessboard
+            - corners_subpixel: np.ndarray, the subpixel corners of the chessboard
             - annotated_color_image: np.ndarray, the corner annotated color image
         """
         # convert to gray image
@@ -219,5 +264,5 @@ class CalculateIntrinsics:
         return ret, corners_subpixel, annotated_color_image
 
 if __name__ == '__main__':
-    calculate_intrinsics = CalculateIntrinsics(pc_id=2, camera_position='global', use_cache=False)
-    calculate_intrinsics.shoot_images(shoot_key='s', exit_key='q', empty_cache_key='r', save_dir='./intrinsics_images')
+    calculate_intrinsics = CalculateIntrinsics(pc_id=2, chessboard_shape=(8,6), square_size=0, camera_position='global')
+    calculate_intrinsics.shoot_images(shoot_key='s', exit_key='q', empty_cache_key='r')
