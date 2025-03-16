@@ -92,14 +92,14 @@ def debug_decorator(head_message:str='', tail_message:str='done', color_name:str
         return wrapper
     return decorator
 
-def print_debug(*args, color_name:str='COLOR_WHITE', bold:bool=True, newline:bool=True):
+def print_debug(*args, color_name:str='COLOR_WHITE', bold:bool=True, end:str|None="\n"):
     """
     print a single line of debug message
 
     inputs:
         - color_name:str(must in __NAMES_OF_COLORS), color of debug message
         - bold:bool(default True), whether outputlog is bold
-        - newline:bool(default True), whether to start a new line
+        - end:bool|None(default '\n'), whether to start a new line
     outputs:
         None
     """
@@ -120,12 +120,12 @@ def print_debug(*args, color_name:str='COLOR_WHITE', bold:bool=True, newline:boo
     list_args_string = [f'{arg}' for arg in args]
     debug_string = ' '.join(list_args_string)
 
-    if newline:
+    if end==None:
         # print and start a new line
         print(f"{color}{bold_ansl}[DEBUG] {debug_string}{RESET}")
     else:
         # print and not start a new line
-        print(f"{color}{bold_ansl}[DEBUG] {debug_string}{RESET}",end='')
+        print(f"{color}{bold_ansl}[DEBUG] {debug_string}{RESET}",end=f'{end}')
 
 
 
