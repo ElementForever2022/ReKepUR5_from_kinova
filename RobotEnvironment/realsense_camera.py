@@ -66,7 +66,7 @@ class RealsenseCamera(object):
         time.sleep(2)
 
         # get intrinsics from RealSense aligned depth frame obj
-        color_image, depth_image, _, aligned_depth_frame = self.__get_frame()
+        _color_image, _depth_image, _, aligned_depth_frame = self.__get_frame()
         self.intrinsics = aligned_depth_frame.profile.as_video_stream_profile().get_intrinsics()
         # register intrinsics' attrs
         self.fx = self.intrinsics.fx # x direction focal length
@@ -150,9 +150,10 @@ class RealsenseCamera(object):
 
 
             # demo the screen
-            cv2.imshow('Realtime Viewer', screen)
+            cv2.imshow('camera_'+self.serial_number+' Realtime Viewer', screen)
 
             if cv2.waitKey(1) & 0xFF == ord(exit_key):
+                cv2.destroyWindow('camera_'+self.serial_number+' Realtime Viewer')
                 break
 
 

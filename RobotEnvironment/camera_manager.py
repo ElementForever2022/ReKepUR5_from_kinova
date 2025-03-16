@@ -9,6 +9,7 @@ import pyrealsense2 as rs # official lib of RealSense Camneras
 import time # wait for cameras to initialize
 import numpy as np # to handle numpy arrays
 import cv2 # OpenCV image process
+import pathlib # to get the path of the current file
 
 from debug_decorators import print_debug,debug_decorator
 
@@ -41,7 +42,8 @@ class CameraManager(object):
         
         # load registered_camera.csv to get
         # bi-directional relationship of serial number and device information
-        self.camera_register_path = './registered_camera.csv'
+        # self.camera_register_path = './registered_camera.csv'
+        self.camera_register_path = pathlib.Path(__file__).parent / 'registered_camera.csv'
         print_debug(f'Loading camera register from {self.camera_register_path}')
         camera_register_df = pd.read_csv(self.camera_register_path) # dataframe of camera register
         # create bi-directional dict: serial number <=> camera name
@@ -68,8 +70,9 @@ class CameraManager(object):
 
         # initialize cameras
         camera_positions = ['global', 'wrist']
-        print_debug('Initializing all cameras...')
+        print_debug(f'Initializing all cameras: {", ".join(camera_positions)}')
         self.camera_dict = {} # to store cameras
+        self.notification_dict = {} # to store notifications of disconnected cameras
         for camera_position in camera_positions:
             camera_name = f'pc{pc_id}_{camera_position}_camera'
             if camera_name in self.connected_camera_names:
@@ -77,9 +80,13 @@ class CameraManager(object):
                 self.camera_dict[camera_position] = RealsenseCamera(self.name2id_dict[camera_name], self.width, self.height, self.fps)
             else:
                 print_debug(f'{camera_name} is not connected',color_name='COLOR_RED')
+                self.notification_dict[camera_position] = 'not notificated'
+                self.camera_dict[camera_position] = None
         time.sleep(2.5) # wait for cameras to initialize
 
-    def __get_camera(self, camera_position:str) -> RealsenseCamera:
+        # end of initialization
+
+    def get_camera(self, camera_position:str) -> RealsenseCamera:
         """
         get camera according to the position
         
@@ -102,10 +109,12 @@ class CameraManager(object):
         outputs:
             color_image: np.ndarray (H,W,3), color image
         """
-        global_camera = self.__get_camera('global')
-        if global_camera is None:
+        if self.camera_dict['global'] is None:
+            if self.notification_dict['global'] == 'not notificated':
+                print_debug(f'The global camera is not connected',color_name='COLOR_RED')
+                self.notification_dict['global'] = 'notified'
             return np.zeros((self.height, self.width, 3), dtype=np.uint8)
-        return global_camera.get_color_image()
+        return self.camera_dict['global'].get_color_image()
     
     def get_wrist_color_image(self) -> np.ndarray:
         """
@@ -114,10 +123,12 @@ class CameraManager(object):
         outputs:
             color_image: np.ndarray (H,W,3), color image
         """
-        wrist_camera = self.__get_camera('wrist')
-        if wrist_camera is None:
+        if self.camera_dict['wrist'] is None:
+            if self.notification_dict['wrist'] == 'not notificated':
+                print_debug(f'The wrist camera is not connected',color_name='COLOR_RED')
+                self.notification_dict['wrist'] = 'notified'
             return np.zeros((self.height, self.width, 3), dtype=np.uint8)
-        return wrist_camera.get_color_image()
+        return self.camera_dict['wrist'].get_color_image()
 
     def get_global_depth_image(self) -> np.ndarray:
         """
@@ -126,10 +137,12 @@ class CameraManager(object):
         outputs:
             depth_image: np.ndarray (H,W), depth image
         """
-        global_camera = self.__get_camera('global')
-        if global_camera is None:
+        if self.camera_dict['global'] is None:
+            if self.notification_dict['global'] == 'not notificated':
+                print_debug(f'The global camera is not connected',color_name='COLOR_RED')
+                self.notification_dict['global'] = 'notified'
             return np.zeros((self.height, self.width), dtype=np.float32)
-        return global_camera.get_depth_image()
+        return self.camera_dict['global'].get_depth_image()
     
     def get_wrist_depth_image(self) -> np.ndarray:
         """
@@ -138,10 +151,12 @@ class CameraManager(object):
         outputs:
             depth_image: np.ndarray (H,W), depth image
         """
-        wrist_camera = self.__get_camera('wrist')
-        if wrist_camera is None:
+        if self.camera_dict['wrist'] is None:
+            if self.notification_dict['wrist'] == 'not notificated':
+                print_debug(f'The wrist camera is not connected',color_name='COLOR_RED')
+                self.notification_dict['wrist'] = 'notified'
             return np.zeros((self.height, self.width), dtype=np.float32)
-        return wrist_camera.get_depth_image()
+        return self.camera_dict['wrist'].get_depth_image()
     
     def get_global_colorized_depth_image(self) -> np.ndarray:
         """
@@ -150,10 +165,12 @@ class CameraManager(object):
         outputs:
             colorized_depth_image: np.ndarray (H,W,3), colorized depth image
         """
-        global_camera = self.__get_camera('global')
-        if global_camera is None:
+        if self.camera_dict['global'] is None:
+            if self.notification_dict['global'] == 'not notificated':
+                print_debug(f'The global camera is not connected',color_name='COLOR_RED')
+                self.notification_dict['global'] = 'notified'
             return np.zeros((self.height, self.width, 3), dtype=np.uint8)
-        return global_camera.get_colorized_depth_image()
+        return self.camera_dict['global'].get_colorized_depth_image()
     
     def get_wrist_colorized_depth_image(self) -> np.ndarray:
         """
@@ -162,10 +179,12 @@ class CameraManager(object):
         outputs:
             colorized_depth_image: np.ndarray (H,W,3), colorized depth image
         """
-        wrist_camera = self.__get_camera('wrist')
-        if wrist_camera is None:
+        if self.camera_dict['wrist'] is None:
+            if self.notification_dict['wrist'] == 'not notificated':
+                print_debug(f'The wrist camera is not connected',color_name='COLOR_RED')
+                self.notification_dict['wrist'] = 'notified'
             return np.zeros((self.height, self.width, 3), dtype=np.uint8)
-        return wrist_camera.get_colorized_depth_image()
+        return self.camera_dict['wrist'].get_colorized_depth_image()
     
     @debug_decorator(
         head_message='launching realtime viewer...',
@@ -180,9 +199,11 @@ class CameraManager(object):
         inputs:
             exit_key: str, key to exit the viewer
         """
-        # get cameras
-        global_camera = self.__get_camera('global')
-        wrist_camera = self.__get_camera('wrist')
+        # detect possible errors/exceptions
+        try:
+            exit_key = exit_key.lower()
+        except Exception as e:
+            raise Exception(f'Unknown Exception: {e}')
 
         # create a "black screen"
         screen = np.zeros((self.height*2, self.width*2, 3), dtype=np.uint8)
@@ -197,20 +218,11 @@ class CameraManager(object):
 
         # keep looping until the specific exit key is pressed
         while True:
-            # get color and depth image(_depth_image and _aligned_depth_frame are to be discarded)
-            if global_camera is not None:
-                global_color_image = global_camera.get_color_image()
-                global_colorized_depth_image = global_camera.get_colorized_depth_image()
-            else:
-                global_color_image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-                global_colorized_depth_image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-            if wrist_camera is not None:
-                wrist_color_image = wrist_camera.get_color_image()
-                wrist_colorized_depth_image = wrist_camera.get_colorized_depth_image()
-            else:
-                wrist_color_image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-                wrist_colorized_depth_image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-            
+            global_color_image = self.get_global_color_image()
+            global_colorized_depth_image = self.get_global_colorized_depth_image()
+            wrist_color_image = self.get_wrist_color_image()
+            wrist_colorized_depth_image = self.get_wrist_colorized_depth_image()
+
             # "stick" the images onto the screen
             screen[:self.height, :self.width, :] = global_color_image # global color image on the upper left
             screen[:self.height, self.width:, :] = global_colorized_depth_image # global depth image on the upper right
@@ -240,18 +252,11 @@ class CameraManager(object):
             cv2.imshow(window_name, screen)
 
             if cv2.waitKey(1) & 0xFF == ord(exit_key):
+                cv2.destroyWindow(window_name)
                 break
 
 
 
 if __name__ == '__main__':
-    # df  = pd.read_csv('registered_camera.csv')
-    # print(df)
-    # all connected cameras
-    # context = rs.context()
-    # # serial numbers of all connected cameras
-    # connected_devices = [d.get_info(rs.camera_info.serial_number) for d in context.devices]
-    # print('Connected devices:', connected_devices)
-    cm = CameraManager(1)
+    cm = CameraManager(2)
     cm.launch_realtime_viewer()
-    # print(cm.get_global_color_image().shape)
