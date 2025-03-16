@@ -19,29 +19,34 @@ class RealsenseCamera(object):
 
     @debug_decorator(
         head_message='initializing realsense camera...',
-        tail_message='camera initialized!',
+        tail_message='realsense camera initialized!',
         color_name='COLOR_WHITE',
         bold=True
     )
-    def __init__(self, width:int=640, height:int=480, fps:int=30) -> None:
+    def __init__(self, serial_number:int, width:int=640, height:int=480, fps:int=30) -> None:
         """
         initialize the camera pipeline
         input:
+            serial_number(int): serial number of the camera
             width(int): width of the photo
             height(int): height of the photo
             fps(int): frame rate of photo pipeline
         output:
             None
         """
+        # serial number of the camera
+        self.serial_number = str(serial_number)
+
         # frame resolution
         self.width = width
         self.height = height
-
+        self.fps = fps
         # configuration of camera
         self.pipeline = rs.pipeline() # photo pipeline
         self.config = rs.config() # basic configuration
         # configure the settings of color images and depth images
-        self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, fps)
+        self.config.enable_device(self.serial_number)
+        self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, self.fps)
         self.config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, fps)
 
         # infrared images
@@ -85,7 +90,7 @@ class RealsenseCamera(object):
     )
     def __del__(self) -> None:
         """
-        destruction method (deconstructor)
+        destruction method (de-constructor/destructor)
         """
         # cut off the pipeline
         self.pipeline.stop()
@@ -94,14 +99,15 @@ class RealsenseCamera(object):
     @debug_decorator(
         head_message='launching realtime viewer...',
         tail_message='viewer destroyed',
-        color_name='COLOR_RED',
+        color_name='COLOR_CYAN',
         bold=True
     )
     def launch_realtime_viewer(self,exit_key:str='q') -> None:
         """
         launch realtime viewer of camera
 
-        no param
+        inputs:
+            exit_key: str, key to exit the viewer
         """
         # detect possible errors/exceptions
         try:
@@ -146,7 +152,7 @@ class RealsenseCamera(object):
             # demo the screen
             cv2.imshow('Realtime Viewer', screen)
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            if cv2.waitKey(1) & 0xFF == ord(exit_key):
                 break
 
 
@@ -202,6 +208,16 @@ class RealsenseCamera(object):
         # get current frames(everything BUT depth_image will be discarded)
         _color_image, depth_image, _colorizer_depth, _aligned_depth_frame = self.__get_frame()
         return depth_image
+
+    def get_colorized_depth_image(self) -> np.ndarray:
+        """
+        get current colorized depth image (H,W,3)
+        
+        outputs:
+        - colorized_depth_image: np.ndarray (H,W,3), current colorized depth image
+        """
+        _color_image, _depth_image, colorized_depth_image, _aligned_depth_frame = self.__get_frame()
+        return colorized_depth_image
 
 if __name__ == '__main__':
     cam = RealsenseCamera()
