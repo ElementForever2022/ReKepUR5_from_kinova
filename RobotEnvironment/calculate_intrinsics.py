@@ -13,14 +13,15 @@ import datetime # for time operations
 import os # for os operations
 
 class CalculateIntrinsics:
-    def __init__(self, pc_id:int, camera_position:str='global', use_cache:bool=False) -> None:
+    def __init__(self, pc_id:int, chessboard_shape:tuple[int],camera_position:str='global', save_dir:str="./intrinsics_images") -> None:
         """
         initialize the class
 
         inputs:
-            - camera_manager: the camera manager
             - pc_id: the id of the pc
+            - chessboard_shape: (x,y) of chessboard CROSS-CORNERS, like a (9,6)-blocked chessboard oughted to be (8,5) as input
             - camera_position: the position of the camera['global', 'wrist']
+            - save_dir: the directory path where the captured images will be saved, default is './intrinsics_images'
         """
         self.pc_id = pc_id # initialize the pc id
         self.camera_position = camera_position # initialize the camera position
@@ -30,20 +31,39 @@ class CalculateIntrinsics:
         self.height = self.camera_manager.height
         self.width = self.camera_manager.width
 
-    def shoot_images(self, shoot_key:str='s', exit_key:str='q', empty_cache_key:str='r', save_dir:str='./intrinsics_images'):
+        # get save directory and save path
+        self.current_path = pathlib.Path(__file__).parent.resolve()
+        self.save_dir = save_dir
+        self.save_path = pathlib.Path(self.current_path, self.save_dir)
+
+        # chessboard shape
+        self.chessboard_shape = chessboard_shape
+
+        # print debug information
+        print_debug(f'camera position:{self.camera_position}', color_name='COLOR_YELLOW')
+        print_debug(f'pc id:{self.pc_id}', color_name='COLOR_YELLOW')
+        print_debug(f'camera resolution: {self.width}x{self.height}', color_name='COLOR_YELLOW')
+        print_debug(f'save path: {self.save_path}', color_name='COLOR_YELLOW')
+        print_debug(f'chessboard shape: {self.chessboard_shape}', color_name='COLOR_YELLOW')
+
+        # end of initialization
+
+    def shoot_images(self, shoot_key:str='s', exit_key:str='q', empty_cache_key:str='r'):
         """
         shoot images from the camera
-        """
-        # get current path
-        current_path = pathlib.Path(__file__).parent.resolve()
-        save_path = pathlib.Path(current_path, save_dir)
 
+        intputs:
+            - shoot_key: the key to press to shoot an image, default is 's'
+            - exit_key: the key to press to exit the shooting loop, default is 'q'
+            - empty_cache_key: the key to press to empty the cache directory, default is 'r'
+            - save_dir: the directory path where the captured images will be saved, default is './intrinsics_images'
+        """
         # check if the save directory exists
-        if not save_path.exists():
-            save_path.mkdir(parents=True, exist_ok=True)
-            print_debug(f"save path {save_path} does not exist, and has been created", color_name='COLOR_GREEN')
+        if not self.save_path.exists():
+            self.save_path.mkdir(parents=True, exist_ok=True)
+            print_debug(f"save path {self.save_path} does not exist, and has been created", color_name='COLOR_GREEN')
         else:
-            print_debug(f"save path {save_path} already exists", color_name='COLOR_BLUE')
+            print_debug(f"save path {self.save_path} already exists", color_name='COLOR_BLUE')
 
         # keys
         try:
@@ -57,7 +77,7 @@ class CalculateIntrinsics:
         camera = self.camera_manager.get_camera(self.camera_position)
 
         # keep looping until the specific exit key is pressed
-        self.shoot_loop(camera=camera, shoot_key=shoot_key, exit_key=exit_key, empty_cache_key=empty_cache_key, save_path=save_path)
+        self.shoot_loop(camera=camera, shoot_key=shoot_key, exit_key=exit_key, empty_cache_key=empty_cache_key)
 
     @debug_decorator(
         head_message='shooting images...',
@@ -65,11 +85,18 @@ class CalculateIntrinsics:
         color_name='COLOR_CYAN',
         bold=True
     )
-    def shoot_loop(self, camera:RealsenseCamera, save_path:str, shoot_key:str='s', exit_key:str='q', empty_cache_key:str='r') -> None:
+    def shoot_loop(self, camera:RealsenseCamera, shoot_key:str='s', exit_key:str='q', empty_cache_key:str='r') -> None:
         """
         shoot images from the camera
+        
+        inputs:
+            - camera: the camera instance of RealsenseCamera
+            - shoot_key: the key to press to shoot an image, default is 's'
+            - exit_key: the key to press to exit the shooting loop, default is 'q'
+            - empty_cache_key: the key to press to empty the cache directory, default is 'r'
         """
         # file tree width
+        
         file_tree_width = self.width
 
         # debug message
@@ -102,7 +129,10 @@ class CalculateIntrinsics:
             # get color and depth image(_depth_image and _aligned_depth_frame are to be discarded)
             color_image = camera.get_color_image()
 
-            # "stick" the images onto the screen
+            # "stick" the annotated image onto the screen
+            _ret, _corners2, annotated_color_image = self.__detect_chessboard(
+                                        color_image,
+                                        self.chessboard_shape)
             screen[:,:self.width, :] = color_image # color image
 
             # screen message demo
@@ -122,7 +152,7 @@ class CalculateIntrinsics:
             # end of screen message demo
 
             # file tree demo
-            img_path_list = ['    '+pathlib.Path(img_path).name for img_path in pathlib.Path(save_path).glob('*')] # get all files under save path
+            img_path_list = ['    '+pathlib.Path(img_path).name for img_path in pathlib.Path(self.save_path).glob('*')] # get all files under save path
             # add title to the file tree
             img_path_list.insert(0, f'intrinsics_images: ({len(img_path_list)} images)')
             (text_width, text_height), baseline = cv2.getTextSize(img_path_list[0], fontFace, fontScale, message_thickness)
@@ -144,17 +174,49 @@ class CalculateIntrinsics:
                 color_image = camera.get_color_image()
                 curr_time = datetime.datetime.now()
                 img_name = f"{curr_time.year}_{curr_time.month}_{curr_time.day}-{curr_time.hour}_{curr_time.minute}_{curr_time.second}_{curr_time.microsecond//1000}.png"
-                img_path = pathlib.Path(save_path, img_name)
+                img_path = pathlib.Path(self.save_path, img_name)
                 cv2.imwrite(img_path, color_image)
                 print_debug(f"image {img_name} has been saved to {img_path}", color_name='COLOR_GREEN')
             elif ord_key_pressed == ord(empty_cache_key):
                 # empty cache
-                os.system(f"rm -rf {save_path}/*")
-                print_debug(f"cache {save_path} has been emptied", color_name='COLOR_GREEN')
+                os.system(f"rm -rf {self.save_path}/*")
+                print_debug(f"cache {self.save_path} has been emptied", color_name='COLOR_GREEN')
 
 
     def calculate_intrinsics(self):
         pass
+
+    @staticmethod
+    def __detect_chessboard(color_image: np.ndarray, chessboard_shape:tuple[int]):
+        """
+        detect chessboard corners
+
+        inputs:
+            - color_image: the color image of the chessboard
+            - chessboard_shape: the shape of the chessboard, like a (9,6)-blocked chessboard oughted to be (8,5) as input
+        outputs:
+            - ret: bool, whether corners detected or not
+            - corners2: np.ndarray, the subpixel corners of the chessboard
+            - annotated_color_image: np.ndarray, the corner annotated color image
+        """
+        # convert to gray image
+        gray_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
+        # detect chessboard corners
+        ret, corners = cv2.findChessboardCorners(gray_image, chessboard_shape, None)
+
+        # if corners detected, then annotate
+        annotated_color_image = color_image.copy() # will be returned whatever
+        if ret:
+            # corner subpixel find termination criteria
+            criteria = (cv2.TERM_CRITERIA_MAX_ITER | cv2.TERM_CRITERIA_EPS, 30, 0.001)
+            # find subpixel corner position
+            corners_subpixel = cv2.cornerSubPix(gray_image, corners, (11, 11), (-1, -1), criteria)
+
+            # begin to annotate and draw the corners
+            cv2.drawChessboardCorners(annotated_color_image, chessboard_shape, corners, ret)
+
+        # return the results
+        return ret, corners_subpixel, annotated_color_image
 
 if __name__ == '__main__':
     calculate_intrinsics = CalculateIntrinsics(pc_id=2, camera_position='global', use_cache=False)
