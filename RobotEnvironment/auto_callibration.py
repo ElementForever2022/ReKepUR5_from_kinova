@@ -8,7 +8,7 @@ import os
 import sys
 import time
 import json
-import scipy.spatial.transform.rotation as R
+from scipy.spatial.transform import Rotation as R
 
 # import necessary modules
 from camera_manager import CameraManager # to get the camera
@@ -16,7 +16,7 @@ from calculate_intrinsics import IntrinsicsCalculator # to visualize the images 
 from debug_decorators import debug_decorator,print_debug # to print debug information
 
 class AutoCallibrator(IntrinsicsCalculator):
-    def __init__(self,pc_id:int, camera_position: str, chessboard_shape: tuple, square_size: float, save_dir: str='./auto_callibration', window_name:str='auto_callibration')->None:
+    def __init__(self,pc_id:int, camera_position: str, chessboard_shape: tuple, square_size: float, save_file: str='./auto_callibration', window_name:str='auto_callibration')->None:
         """
         initialize the auto callibrator
 
@@ -25,7 +25,7 @@ class AutoCallibrator(IntrinsicsCalculator):
             - camera_position: str, the position of the camera, ['left', 'right']
             - chessboard_shape: tuple, the shape of the chessboard
             - square_size: float, the size of the square
-            - save_dir: str, the directory to save the results
+            - save_file: str, the file to save the results
             - window_name: str, the name of the window, default is 'auto_callibration'
         """
         super().__init__(pc_id=pc_id, chessboard_shape=chessboard_shape, square_size=square_size, camera_position=camera_position, save_dir='./intrinsics_images', window_name=window_name)
@@ -46,7 +46,14 @@ class AutoCallibrator(IntrinsicsCalculator):
         # initialize the robot2camera matrix
         self.robot2camera = None
 
-    def set_auto_callibrator_keys(self, callibrate_key:str='c', set_x_key:str='x', set_y_key:str='y')->None:
+        # initialize the clicked point coordinates
+        self.click_pixel_coords = None # the pixel coordinates of the clicked point: (u,v)
+        self.click_camera_coords = None # the camera coordinates of the clicked point: (x,y,z)
+        self.click_robot_coords = None # the robot coordinates of the clicked point: (x,y,z)
+
+        self.from_calculated_intrinsics = False
+
+    def set_auto_callibrator_keys(self, callibrate_key:str='c', set_x_key:str='x', set_y_key:str='y', callibate_from_calculated_intrinsics_key:str='v', save_matrix_key:str='z')->None:
         """
         set the keys
 
@@ -57,19 +64,27 @@ class AutoCallibrator(IntrinsicsCalculator):
         self.callibrate_key = callibrate_key
         self.set_x_key = set_x_key
         self.set_y_key = set_y_key
+        self.callibate_from_calculated_intrinsics_key = callibate_from_calculated_intrinsics_key
+        self.save_matrix_key = save_matrix_key
 
         # print debug information
         print_debug(f'callibrate key:{self.callibrate_key.upper()}', color_name='COLOR_YELLOW')
         print_debug(f'set x key:{self.set_x_key.upper()}', color_name='COLOR_YELLOW')
         print_debug(f'set y key:{self.set_y_key.upper()}', color_name='COLOR_YELLOW')
+        print_debug(f'callibrate from calculated intrinsics key:{self.callibate_from_calculated_intrinsics_key.upper()}', color_name='COLOR_YELLOW')
+        print_debug(f'save matrix key:{self.save_matrix_key.upper()}', color_name='COLOR_YELLOW')
 
         # add the keys
         self.add_keys(keys=[self.callibrate_key,
                             self.set_x_key,
-                            self.set_y_key],
+                            self.set_y_key,
+                            self.callibate_from_calculated_intrinsics_key,
+                            self.save_matrix_key],
                     events=[self.__callibrate,
                             self.__set_position_x,
-                            self.__set_position_y])
+                            self.__set_position_y,
+                            self.__callibrate_from_calculated_intrinsics,
+                            self.__save_matrix])
         
         # set mouse callback
         cv2.setMouseCallback(self.window_name, self.__mouse_callback)
@@ -93,7 +108,9 @@ class AutoCallibrator(IntrinsicsCalculator):
                        f"Press {self.empty_cache_key.upper()} to empty cache",
                        f"Press {self.calculate_intrinsics_key.upper()} to calculate intrinsics",
                        f"Press {self.set_x_key.upper()} to set x position",
-                       f"Press {self.set_y_key.upper()} to set y position"]
+                       f"Press {self.set_y_key.upper()} to set y position",
+                       f"Press {self.callibate_from_calculated_intrinsics_key.upper()} to callibrate from calculated intrinsics",
+                       f"Press {self.save_matrix_key.upper()} to save the matrix"]
         key_message_position = (self.width//20, self.height//10)
         key_message_color = (255,255,0) # cyan text
         key_message_thickness = 2
@@ -101,11 +118,14 @@ class AutoCallibrator(IntrinsicsCalculator):
         key_message_background_color = (0,0,0) # black background
 
         # intrinsics message
-        intrinsics_message_position = (self.width//10, self.height//7)
+        intrinsics_message_position = (self.width//10, self.height//10)
         intrinsics_message_color = (255,255,0) # cyan text
         intrinsics_message_thickness = 2
         intrinsics_message_padding = 5
         intrinsics_message_background_color = (0,0,0) # black background
+
+        # clicked point message
+        clicked_message_position = (self.width//10, 2*self.height//3)
 
         # the loop to callibrate the camera
         self.keep_looping = True
@@ -155,11 +175,34 @@ class AutoCallibrator(IntrinsicsCalculator):
             self.add_words(words=intrinsics_message, screen_switch='right', 
                        position=intrinsics_message_position, color=intrinsics_message_color, 
                        thickness=intrinsics_message_thickness, padding=intrinsics_message_padding,
-                        background_color=intrinsics_message_background_color)
+                        background_color=intrinsics_message_background_color,
+                        font_scale=0.5)
+
+            # add clicked point message to the screen
+            if self.click_pixel_coords is not None:
+                self.add_words(words=[f"clicked at ({self.click_pixel_coords[0]}, {self.click_pixel_coords[1]})",
+                                      f"camera coordinates: {self.click_camera_coords[0]:.2f}, {self.click_camera_coords[1]:.2f}, {self.click_camera_coords[2]:.2f}",
+                                      f"robot coordinates: {self.click_robot_coords[0]:.2f}, {self.click_robot_coords[1]:.2f}, {self.click_robot_coords[2]:.2f}"], screen_switch='right', 
+                       position=clicked_message_position, color=intrinsics_message_color, 
+                       thickness=intrinsics_message_thickness, padding=intrinsics_message_padding,
+                        background_color=intrinsics_message_background_color,
+                        font_scale=0.5)
 
             self.show() # render and show the screen
         # end of callibrate loop
     
+    def __callibrate_from_calculated_intrinsics(self)->None:
+        """
+        the event to callibrate the camera from calculated intrinsics
+        """
+        self.from_calculated_intrinsics = not self.from_calculated_intrinsics
+
+    def __save_matrix(self)->None:
+        """
+        the event to save the matrix
+        """
+        print_debug('saving the matrix', color_name='COLOR_GREEN')
+
     def __callibrate(self)->None:
         """
         the event to callibrate the camera
@@ -175,7 +218,7 @@ class AutoCallibrator(IntrinsicsCalculator):
         # calculate the robo[os.path.join(directory, name) for name in image_names] t2board matrix
         r2b_rvecs = self.chessboard_rvecs
         r2b_tvecs = np.array([self.position_x, self.position_y, 0])
-        r2b_rotation_matrix = R.Rotation.from_euler('xyz', r2b_rvecs, degrees=True).as_matrix()
+        r2b_rotation_matrix = R.from_euler('xyz', r2b_rvecs, degrees=True).as_matrix()
         r2b_rotation_matrix = np.linalg.inv(r2b_rotation_matrix)
         r2b_translation_vector = r2b_tvecs.ravel()
         r2b_matrix = np.eye(4)
@@ -218,7 +261,6 @@ class AutoCallibrator(IntrinsicsCalculator):
         b2c_matrix = np.eye(4)
         b2c_matrix[:3, :3] = b2c_rotation_matrix
         b2c_matrix[:3, 3] = b2c_translation_vector
-        # self.board2camera = np.linalg.inv(b2c_matrix)
         self.board2camera = b2c_matrix
 
         # calculate the robot2camera matrix
@@ -242,15 +284,23 @@ class AutoCallibrator(IntrinsicsCalculator):
         the mouse callback
         """
         if event == cv2.EVENT_LBUTTONDOWN:
-            if self.robot2camera is None:
+            if self.robot2camera is None and self.from_calculated_intrinsics:
+                print_debug('please callibrate the camera first', color_name='COLOR_RED')
                 return
-            print(f'clicked at ({x}, {y})')
+            # print(f'clicked at ({x}, {y})')
             # get the depth
             depth = self.camera.get_depth_image()[y, x]/1000
-            print(f'depth: {depth}')
             # get the robot coordinates
-            robot_coords = self.pixel_to_robot(x, y, depth, self.camera.intrinsics_matrix, self.robot2camera)
-            print(f'robot coordinates: {robot_coords[:3]}')
+            if self.from_calculated_intrinsics:
+                camera_coords, robot_coords = self.pixel_to_robot(x, y, depth, self.calculated_intrinsics_matrix, self.robot2camera)
+            else:
+                camera_coords, robot_coords = self.pixel_to_robot(x, y, depth, self.camera.intrinsics_matrix, self.robot2camera)
+
+            # set the clicked point coordinates
+            self.click_pixel_coords = (x, y)
+            self.click_camera_coords = camera_coords
+            self.click_robot_coords = robot_coords
+
 
     @staticmethod
     def pixel_to_robot(u, v, Z, intrinsic_matrix, extrinsic_matrix)->None:
@@ -263,6 +313,10 @@ class AutoCallibrator(IntrinsicsCalculator):
             - Z: int, the depth of the point(mm)
             - intrinsic_matrix: np.ndarray (3,3), the intrinsic matrix of the camera
             - extrinsic_matrix: np.ndarray (4,4), the extrinsic matrix of the camera
+        
+        outputs:
+            - camera_coords: np.ndarray (3,), the coordinates of the point in the camera frame
+            - robot_coords: np.ndarray (3,), the coordinates of the point in the robot frame
         """
         fx, fy = intrinsic_matrix[0, 0], intrinsic_matrix[1, 1]
         cx, cy = intrinsic_matrix[0, 2], intrinsic_matrix[1, 2]
@@ -271,10 +325,8 @@ class AutoCallibrator(IntrinsicsCalculator):
     
         camera_coords = np.array([X_c, Y_c, Z, 1]).reshape(4,1)
         robot_coords = np.linalg.inv(extrinsic_matrix) @ camera_coords
-        print("camera_coords", camera_coords[:3])
-        print("robot_coords", robot_coords[:3])
 
-        return robot_coords[:3]
+        return camera_coords[:3,0], robot_coords[:3,0]
 
 
 
@@ -286,7 +338,7 @@ if __name__ == '__main__':
         camera_position='global',
         chessboard_shape=(5,8),
         square_size=0.02611,
-        save_dir='./auto_callibration',
+        save_file='./auto_callibration.json',
         window_name='auto_callibration'
     )
     auto_callibration.callibration_loop()
