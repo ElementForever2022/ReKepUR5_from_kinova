@@ -8,6 +8,7 @@ import os
 import sys
 import time
 import json
+import scipy.spatial.transform.rotation as R
 
 # import necessary modules
 from camera_manager import CameraManager # to get the camera
@@ -31,10 +32,19 @@ class AutoCallibrator(IntrinsicsCalculator):
         self.set_auto_callibrator_keys()
 
         # initialize the position of original point of the chessboard
-        self.position_x = None
-        self.position_y = None
+        # self.position_x = None
+        # self.position_y = None
+        self.position_x = -0.201
+        self.position_y = -0.5515
         self.camera_intrinsics = self.camera.intrinsics_matrix
         self.calculated_intrinsics_matrix = self._calculate_intrinsics(save=False)
+
+        # initialize the orientation of the chessboard
+        self.chessboard_rvecs = np.array([-180,0,-180])
+        print_debug(f'chessboard rvecs: {self.chessboard_rvecs}', color_name='COLOR_YELLOW')
+
+        # initialize the robot2camera matrix
+        self.robot2camera = None
 
     def set_auto_callibrator_keys(self, callibrate_key:str='c', set_x_key:str='x', set_y_key:str='y')->None:
         """
@@ -60,6 +70,9 @@ class AutoCallibrator(IntrinsicsCalculator):
                     events=[self.__callibrate,
                             self.__set_position_x,
                             self.__set_position_y])
+        
+        # set mouse callback
+        cv2.setMouseCallback(self.window_name, self.__mouse_callback)
 
     def _calculate_intrinsics(self, save:bool=True)->None:
         """
@@ -125,15 +138,18 @@ class AutoCallibrator(IntrinsicsCalculator):
                 demo_y_position = self.position_y
             intrinsics_message = [f"camera api intrinsics: ",
                               f"[[{self.camera_intrinsics[0,0]:.2f}, {self.camera_intrinsics[0,1]:.2f}, {self.camera_intrinsics[0,2]:.2f}]",
-                              f"[{self.camera_intrinsics[1,0]:.2f}, {self.camera_intrinsics[1,1]:.2f}, {self.camera_intrinsics[1,2]:.2f}]",
-                              f"[{self.camera_intrinsics[2,0]:.2f}, {self.camera_intrinsics[2,1]:.2f}, {self.camera_intrinsics[2,2]:.2f}]]",
+                              f" [{self.camera_intrinsics[1,0]:.2f}, {self.camera_intrinsics[1,1]:.2f}, {self.camera_intrinsics[1,2]:.2f}]",
+                              f" [{self.camera_intrinsics[2,0]:.2f}, {self.camera_intrinsics[2,1]:.2f}, {self.camera_intrinsics[2,2]:.2f}]]",
                               f"",
                               f"calculated intrinsics: ",
                               f"[[{self.calculated_intrinsics_matrix[0,0]:.2f}, {self.calculated_intrinsics_matrix[0,1]:.2f}, {self.calculated_intrinsics_matrix[0,2]:.2f}]",
-                              f"[{self.calculated_intrinsics_matrix[1,0]:.2f}, {self.calculated_intrinsics_matrix[1,1]:.2f}, {self.calculated_intrinsics_matrix[1,2]:.2f}]",
-                              f"[{self.calculated_intrinsics_matrix[2,0]:.2f}, {self.calculated_intrinsics_matrix[2,1]:.2f}, {self.calculated_intrinsics_matrix[2,2]:.2f}]]",
+                              f" [{self.calculated_intrinsics_matrix[1,0]:.2f}, {self.calculated_intrinsics_matrix[1,1]:.2f}, {self.calculated_intrinsics_matrix[1,2]:.2f}]",
+                              f" [{self.calculated_intrinsics_matrix[2,0]:.2f}, {self.calculated_intrinsics_matrix[2,1]:.2f}, {self.calculated_intrinsics_matrix[2,2]:.2f}]]",
                               f"",
-                              f"position: x={demo_x_position:.2f} y={demo_y_position:.2f}"
+                              f"chessboard position: ",
+                              f"    x={demo_x_position:.2f} y={demo_y_position:.2f}",
+                              f"chessboard orientation: ",
+                              f"    x={self.chessboard_rvecs[0]:.2f} y={self.chessboard_rvecs[1]:.2f} z={self.chessboard_rvecs[2]:.2f}"
                               ]
             # add intrinsics message to the screen
             self.add_words(words=intrinsics_message, screen_switch='right', 
@@ -155,6 +171,59 @@ class AutoCallibrator(IntrinsicsCalculator):
         
         # callibrate the camera
         print_debug('callibrating the camera', color_name='COLOR_GREEN')
+
+        # calculate the robo[os.path.join(directory, name) for name in image_names] t2board matrix
+        r2b_rvecs = self.chessboard_rvecs
+        r2b_tvecs = np.array([self.position_x, self.position_y, 0])
+        r2b_rotation_matrix = R.Rotation.from_euler('xyz', r2b_rvecs, degrees=True).as_matrix()
+        r2b_rotation_matrix = np.linalg.inv(r2b_rotation_matrix)
+        r2b_translation_vector = r2b_tvecs.ravel()
+        r2b_matrix = np.eye(4)
+        r2b_matrix[:3, :3] = r2b_rotation_matrix
+        r2b_matrix[:3, 3] = r2b_translation_vector
+        self.robot2board = np.linalg.inv(r2b_matrix)
+
+        # calculate the board2camera matrix
+        current_color_image = self.camera.get_color_image()
+        obj_points_list = [] # 3D points of the chessboard
+        img_points_list = [] # 2D points of the chessboard
+        gray = cv2.cvtColor(current_color_image, cv2.COLOR_BGR2GRAY)
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        ret, corners = cv2.findChessboardCorners(gray, self.chessboard_shape, None)
+        corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        img_points_list.append(corners2)
+        obj_points = np.zeros((self.chessboard_shape[1] * self.chessboard_shape[0], 3), np.float32)
+        obj_points[:, :2] = np.mgrid[0:self.chessboard_shape[0], 0:self.chessboard_shape[1]].T.reshape(-1, 2) * self.square_size
+        obj_points_list.append(obj_points)
+
+        img_list = [os.path.join(self.save_dir, name) for name in os.listdir(self.save_dir)]
+        for i in range(len(obj_points_list)):
+            if img_list[i].split('.')[-1] != 'png':
+                continue
+            img = cv2.imread(img_list[i])
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            ret, corners = cv2.findChessboardCorners(gray, self.chessboard_shape, None)
+            if ret:
+                corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+                img_points_list.append(corners2)
+                obj_points_list.append(obj_points)
+
+        # calculate the board2camera matrix
+        _ret, _camera_matrix, _dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
+            obj_points_list, img_points_list, gray.shape[::-1], None, None
+        )
+
+        b2c_rotation_matrix,_ = cv2.Rodrigues(rvecs[0])
+        b2c_translation_vector = tvecs[0].ravel()
+        b2c_matrix = np.eye(4)
+        b2c_matrix[:3, :3] = b2c_rotation_matrix
+        b2c_matrix[:3, 3] = b2c_translation_vector
+        # self.board2camera = np.linalg.inv(b2c_matrix)
+        self.board2camera = b2c_matrix
+
+        # calculate the robot2camera matrix
+        self.robot2camera = self.board2camera@self.robot2board
+        print_debug(f'robot2camera: {self.robot2camera}', color_name='COLOR_GREEN')
     
     def __set_position_x(self)->None:
         """
@@ -167,6 +236,45 @@ class AutoCallibrator(IntrinsicsCalculator):
         set the position in y axis(in METERS) of the original point of the chessboard
         """
         self.position_y = float(input('Please input the position in y axis(in METERS) of the original point of the chessboard: '))
+
+    def __mouse_callback(self, event, x, y, flags, param)->None:
+        """
+        the mouse callback
+        """
+        if event == cv2.EVENT_LBUTTONDOWN:
+            if self.robot2camera is None:
+                return
+            print(f'clicked at ({x}, {y})')
+            # get the depth
+            depth = self.camera.get_depth_image()[y, x]/1000
+            print(f'depth: {depth}')
+            # get the robot coordinates
+            robot_coords = self.pixel_to_robot(x, y, depth, self.camera.intrinsics_matrix, self.robot2camera)
+            print(f'robot coordinates: {robot_coords[:3]}')
+
+    @staticmethod
+    def pixel_to_robot(u, v, Z, intrinsic_matrix, extrinsic_matrix)->None:
+        """
+        the robot to camera transformation
+        
+        inputs:
+            - u: int, the x coordinate of the point
+            - v: int, the y coordinate of the point
+            - Z: int, the depth of the point(mm)
+            - intrinsic_matrix: np.ndarray (3,3), the intrinsic matrix of the camera
+            - extrinsic_matrix: np.ndarray (4,4), the extrinsic matrix of the camera
+        """
+        fx, fy = intrinsic_matrix[0, 0], intrinsic_matrix[1, 1]
+        cx, cy = intrinsic_matrix[0, 2], intrinsic_matrix[1, 2]
+        X_c = (u - cx) * Z / fx
+        Y_c = (v - cy) * Z / fy
+    
+        camera_coords = np.array([X_c, Y_c, Z, 1]).reshape(4,1)
+        robot_coords = np.linalg.inv(extrinsic_matrix) @ camera_coords
+        print("camera_coords", camera_coords[:3])
+        print("robot_coords", robot_coords[:3])
+
+        return robot_coords[:3]
 
 
 
