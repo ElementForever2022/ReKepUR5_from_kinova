@@ -49,6 +49,11 @@ class Visualizer(object):
         self.words_queue = [] # list of words to be added to the screen
         self.words_background_queue = [] # list of backgrounds of words to be added to the screen
 
+
+        # initialize the keys
+        self.keys = []
+        self.events = []
+
         # initialize the window
         self.window_name = window_name
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
@@ -61,34 +66,16 @@ class Visualizer(object):
         """
         self.close()
 
-    def init_keys(self, keys:list[str], events:list[Callable]) -> None:
+    def add_keys(self, keys:list[str], events:list[Callable]) -> None:
         """
-        initialize the keys
+        add keys to the visualizer
 
         inputs:
             - keys: list[str], the keys to be initialized
             - events: list[Callable], the events to be triggered when the keys are pressed
         """
-        # def on_press(k):
-        #     for key, event in zip(keys, events):
-        #         try:
-        #             if hasattr(k, 'char'):
-        #                 if k.char == key:
-        #                 # execute the event
-        #                     event()
-        #                     # return False
-        #         except AttributeError:
-        #             print(f'special key {k} is pressed')
-        # def on_release(k):
-        #     for key in keys:
-        #         if hasattr(k, 'char'):
-        #             if k.char == key:
-        #                 pass
-
-        # with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
-        #     listener.join()
-        self.keys = keys
-        self.events = events
+        self.keys.extend(keys)
+        self.events.extend(events)
 
     def set_screen_left(self, screen:np.ndarray) -> None:
         """
@@ -139,9 +126,9 @@ class Visualizer(object):
             # calculate the text size
             (text_width, text_height), _baseline = cv2.getTextSize(word, font_face, font_scale, thickness)
             # update the positions of the words and the backgrounds
-            current_words_position = (current_words_position[0], current_words_position[1] + 2*(text_height*4//7))
-            current_background_top_left = (current_words_position[0] - padding, current_words_position[1] -text_height*4//7-padding)
-            current_background_bottom_right = (current_words_position[0] + text_width + padding, current_words_position[1] + text_height*4//7+padding)
+            current_words_position = (current_words_position[0], current_words_position[1] + 2*(text_height*5//7))
+            current_background_top_left = (current_words_position[0] - padding, current_words_position[1] -text_height*5//7-padding)
+            current_background_bottom_right = (current_words_position[0] + text_width + padding, current_words_position[1] + text_height*5//7+padding)
             # add the positions to the lists
             self.words_queue.append((word, screen_switch, current_words_position,  font_face, font_scale, color, thickness))
             self.words_background_queue.append((screen_switch, current_background_top_left, current_background_bottom_right, background_color))

@@ -288,7 +288,7 @@ class CalculateIntrinsics:
 
 # intrinsics calculator
 class IntrinsicsCalculator(Visualizer):
-    def __init__(self, pc_id:int, chessboard_shape:tuple[int], square_size:float ,camera_position:str='global', save_dir:str="./intrinsics_images") -> None:
+    def __init__(self, pc_id:int, chessboard_shape:tuple[int], square_size:float ,camera_position:str='global', save_dir:str="./intrinsics_images", window_name:str='intrinsics_calculator') -> None:
         """
         initialize the intrinsics calculator
         
@@ -298,8 +298,9 @@ class IntrinsicsCalculator(Visualizer):
             - square_size: float, side length of a square(in METERS)
             - camera_position: the position of the camera['global', 'wrist']
             - save_dir: the directory path where the captured images will be saved, default is './intrinsics_images'
+            - window_name: the name of the window, default is 'intrinsics_calculator'
         """
-        super().__init__(height=480, width_left=640, width_right=640, window_name='intrinsics_calculator')
+        super().__init__(height=480, width_left=640, width_right=640, window_name=window_name)
 
         # initialize the camera manager
         self.pc_id = pc_id
@@ -366,22 +367,18 @@ class IntrinsicsCalculator(Visualizer):
         print_debug(f'calculate intrinsics key:{self.calculate_intrinsics_key.upper()}', color_name='COLOR_YELLOW')
 
         # connect the keys to the functions
-        # self.init_key(key=self.shoot_key, event=self.__shoot)
-        # self.init_key(key=self.exit_key, event=self.__exit)
-        # self.init_key(key=self.empty_cache_key, event=self.__empty_cache)
-        # self.init_key(key=self.calculate_intrinsics_key, event=self.__calculate_intrinsics)
-        self.init_keys(keys=[self.shoot_key,
+        self.add_keys(keys=[self.shoot_key,
                              self.exit_key,
                              self.empty_cache_key,
                              self.calculate_intrinsics_key], 
                        events=[self.__shoot,
                                self.__exit,
                                self.__empty_cache,
-                               self.__calculate_intrinsics])
+                               self._calculate_intrinsics])
         # end of key initialization
 
     @staticmethod
-    def __detect_chessboard(color_image: np.ndarray, chessboard_shape:tuple[int]):
+    def _detect_chessboard(color_image: np.ndarray, chessboard_shape:tuple[int]):
         """
         detect chessboard corners
 
@@ -438,7 +435,7 @@ class IntrinsicsCalculator(Visualizer):
             # get current color image
             color_image = self.camera.get_color_image()
             # "stick" the annotated image onto the screen
-            _ret, _corners2, annotated_color_image = self.__detect_chessboard(
+            _ret, _corners2, annotated_color_image = self._detect_chessboard(
                                         color_image,
                                         self.chessboard_shape)
             
@@ -488,7 +485,7 @@ class IntrinsicsCalculator(Visualizer):
         print_debug(f"cache {self.save_path} has been emptied", color_name='COLOR_GREEN')
 
 
-    def __calculate_intrinsics(self):
+    def _calculate_intrinsics(self, save:bool=True):
         """
         calculate the intrinsics of the camera according to current save path and save it to a file
         """
@@ -514,7 +511,7 @@ class IntrinsicsCalculator(Visualizer):
             # get the image ndarray
             color_image = cv2.imread(img_path)
             # detect corners
-            ret, corners_subpixel, _annotated_img = self.__detect_chessboard(color_image, self.chessboard_shape)
+            ret, corners_subpixel, _annotated_img = self._detect_chessboard(color_image, self.chessboard_shape)
 
             # if corners found, then add them to the list
             if ret:
@@ -532,11 +529,12 @@ class IntrinsicsCalculator(Visualizer):
         print_debug(f"camera intrinsics:\n{self.camera.intrinsics_matrix}", color_name='COLOR_GREEN')
 
         # save the intrinsics to a file
-        with open(pathlib.Path(self.save_path, 'intrinsics.txt'), 'w') as f:
-            # write the intrinsics matrix as list of lists
-            f.write(str(calculated_intrinsics_matrix.tolist()))
-        print_debug(f"intrinsics have been saved to {pathlib.Path(self.save_path, 'intrinsics.txt')}", color_name='COLOR_GREEN')
-
+        if save:
+            with open(pathlib.Path(self.save_path, 'intrinsics.txt'), 'w') as f:
+                # write the intrinsics matrix as list of lists
+                f.write(str(calculated_intrinsics_matrix.tolist()))
+            print_debug(f"intrinsics have been saved to {pathlib.Path(self.save_path, 'intrinsics.txt')}", color_name='COLOR_GREEN')
+        return calculated_intrinsics_matrix
 if __name__ == '__main__':
     # calculate_intrinsics = CalculateIntrinsics(pc_id=2, chessboard_shape=(5,8), square_size=0.0261111, camera_position='global')
     # calculate_intrinsics.shoot_images(shoot_key='s', exit_key='q', empty_cache_key='r', calculate_intrinsics_key='i')
