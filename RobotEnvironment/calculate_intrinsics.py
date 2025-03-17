@@ -162,7 +162,7 @@ class CalculateIntrinsics:
             # end of screen message demo
 
             # file tree demo
-            img_path_list = ['    '+pathlib.Path(img_path).name for img_path in pathlib.Path(self.save_path).glob('*')] # get all files under save path
+            img_path_list = ['    '+pathlib.Path(img_path).name for img_path in pathlib.Path(self.save_path).glob('*.png')] # get all files under save path
             # add title to the file tree
             img_path_list.insert(0, f'intrinsics_images: ({len(img_path_list)} images)')
             (text_width, text_height), baseline = cv2.getTextSize(img_path_list[0], fontFace, fontScale, message_thickness)
@@ -199,13 +199,19 @@ class CalculateIntrinsics:
                 print_debug(f"intrinsics have been calculated:\n{calculated_intrinsics_matrix}", color_name='COLOR_GREEN')
                 print_debug(f"camera intrinsics:\n{camera.intrinsics_matrix}", color_name='COLOR_GREEN')
 
+                # save the intrinsics to a file
+                with open(pathlib.Path(self.save_path, 'intrinsics.txt'), 'w') as f:
+                    # write the intrinsics matrix as list of lists
+                    f.write(str(calculated_intrinsics_matrix.tolist()))
+                print_debug(f"intrinsics have been saved to {pathlib.Path(self.save_path, 'intrinsics.txt')}", color_name='COLOR_GREEN')
+
 
     def calculate_intrinsics(self):
         """
         calculate the intrinsics of the camera according to current save path
         """
         # get all files under save path
-        img_path_list = [str(pathlib.Path(img_path)) for img_path in pathlib.Path(self.save_path).glob('*')]
+        img_path_list = [str(pathlib.Path(img_path)) for img_path in pathlib.Path(self.save_path).glob('*.png')]
 
         if len(img_path_list)<5:
             print_debug('not enough images! at least 5 of them')
