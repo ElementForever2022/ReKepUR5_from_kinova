@@ -5,6 +5,7 @@ import cv2 # for image processing
 import numpy as np # for numerical operations
 from typing import Callable # for type hinting
 from pynput import keyboard # for keyboard input
+import abc # for abstract base classes
 
 # import the necessary modules
 from camera_manager import CameraManager # for camera management
@@ -32,21 +33,26 @@ class Visualizer(object):
         """
         # resolution of the screen
         self.height = height
-        self.width = width_left + width_right
+        self.width_left = width_left
+        self.width_right = width_right
+        self.width = self.width_left + self.width_right
 
         # initialize the screen
         self.screen = np.zeros((self.height, self.width, 3), dtype=np.uint8)
         # initialize the left and right screen
         self.screen_left = np.zeros((self.height, self.width_left, 3), dtype=np.uint8)
         self.screen_right = np.zeros((self.height, self.width_right, 3), dtype=np.uint8)
+        self.screen_left_to_render = np.zeros((self.height, self.width_left, 3), dtype=np.uint8)
+        self.screen_right_to_render = np.zeros((self.height, self.width_right, 3), dtype=np.uint8)
         
         # initialize the words queue
         self.words_queue = [] # list of words to be added to the screen
         self.words_background_queue = [] # list of backgrounds of words to be added to the screen
 
         # initialize the window
-        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(window_name, self.width, self.height)
+        self.window_name = window_name
+        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(self.window_name, self.width, self.height)
         # end of initialization
     
     def __del__(self) -> None:
@@ -55,28 +61,34 @@ class Visualizer(object):
         """
         self.close()
 
-    def init_key(self, key:str, event:Callable) -> None:
+    def init_keys(self, keys:list[str], events:list[Callable]) -> None:
         """
-        initialize the key
+        initialize the keys
 
         inputs:
-            - key: str, the key to be initialized
-            - event: Callable, the event to be triggered when the key is pressed
+            - keys: list[str], the keys to be initialized
+            - events: list[Callable], the events to be triggered when the keys are pressed
         """
-        def on_press(k):
-            try:
-                if k.char == key:
-                    # execute the event
-                    event()
-                    return False
-            except AttributeError:
-                print(f'special key {k} is pressed')
-        def on_release(k):
-            if k.char == key:
-                return False
+        # def on_press(k):
+        #     for key, event in zip(keys, events):
+        #         try:
+        #             if hasattr(k, 'char'):
+        #                 if k.char == key:
+        #                 # execute the event
+        #                     event()
+        #                     # return False
+        #         except AttributeError:
+        #             print(f'special key {k} is pressed')
+        # def on_release(k):
+        #     for key in keys:
+        #         if hasattr(k, 'char'):
+        #             if k.char == key:
+        #                 pass
 
-        with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
-            listener.join()
+        # with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
+        #     listener.join()
+        self.keys = keys
+        self.events = events
 
     def set_screen_left(self, screen:np.ndarray) -> None:
         """
@@ -85,7 +97,7 @@ class Visualizer(object):
         inputs:
             - screen: np.ndarray (H,W,3), the left screen to be set
         """
-        self.screen_left = screen
+        self.screen_left_to_render = screen
 
     def set_screen_right(self, screen:np.ndarray) -> None:
         """
@@ -94,12 +106,12 @@ class Visualizer(object):
         inputs:
             - screen: np.ndarray (H,W,3), the right screen to be set
         """
-        self.screen_right = screen
+        self.screen_right_to_render = screen
 
     def add_words(self, words:list[str]|str, screen_switch:str, position:tuple[int,int],
-                  font_face:int=cv2.FONT_HERSHEY_SIMPLEX, font_scale:float=0.5,
+                  font_face:int=cv2.FONT_HERSHEY_SIMPLEX, font_scale:float=0.75,
                   color:tuple=(255,255,0), thickness:int=1,
-                  padding:int=10, background_color:tuple=(0,0,0),
+                  padding:int=5, background_color:tuple=(0,0,0),
                   ) -> None:
         """
         add words to the screen
@@ -119,41 +131,28 @@ class Visualizer(object):
             words = [words]
         # calculate the text size
         (text_width, text_height), baseline = cv2.getTextSize(words[0], font_face, font_scale, thickness)
-        # calculate the positions of the words as well as the backgrounds
-        begining_top_left = (position[0], position[1] - text_height - 2*padding) # the top left of the first line of words
-        begining_bottom_right = (position[0] + text_width + padding, position[1] + padding - text_height) # the bottom right of the first line of words
-        # initialize the positions of the words and the backgrounds
-        words_top_lefts = []
-        words_bottom_rights = []
-        background_top_lefts = []
-        background_bottom_rights = []
+        
         # initialize the current positions of the words and the backgrounds
-        current_words_top_left = begining_top_left
-        current_words_bottom_right = begining_bottom_right
-        current_background_top_left = begining_top_left
-        current_background_bottom_right = begining_bottom_right
+        current_words_position = (position[0], position[1] - text_height - 2*padding) # the top left of the first line of words
         # add the words to the queue
         for i, word in enumerate(words):
             # calculate the text size
-            (text_width, text_height), baseline = cv2.getTextSize(word, font_face, font_scale, thickness)
+            (text_width, text_height), _baseline = cv2.getTextSize(word, font_face, font_scale, thickness)
             # update the positions of the words and the backgrounds
-            current_words_top_left = (current_words_top_left[0], current_words_top_left[1] + text_height + padding*2)
-            current_words_bottom_right = (current_words_top_left[0] + text_width, current_words_top_left[1] + text_height)
-            current_background_top_left = (current_words_top_left[0] - padding, current_words_top_left[1] - padding)
-            current_background_bottom_right = (current_words_bottom_right[0] + padding, current_words_bottom_right[1] + padding)
+            current_words_position = (current_words_position[0], current_words_position[1] + 2*(text_height*4//7))
+            current_background_top_left = (current_words_position[0] - padding, current_words_position[1] -text_height*4//7-padding)
+            current_background_bottom_right = (current_words_position[0] + text_width + padding, current_words_position[1] + text_height*4//7+padding)
             # add the positions to the lists
-            words_top_lefts.append(current_words_top_left)
-            words_bottom_rights.append(current_words_bottom_right)
-            background_top_lefts.append(current_background_top_left)
-            background_bottom_rights.append(current_background_bottom_right)
-            self.words_queue.append((word, screen_switch, current_words_top_left, current_words_bottom_right, font_face, font_scale, color, thickness))
+            self.words_queue.append((word, screen_switch, current_words_position,  font_face, font_scale, color, thickness))
             self.words_background_queue.append((screen_switch, current_background_top_left, current_background_bottom_right, background_color))
-    
+
     def __render(self) -> None:
         """
         render the screen, add background to the screen and render the words
         """
-
+        self.screen = np.zeros((self.height, self.width_left+self.width_right, 3), dtype=np.uint8)
+        self.screen_left = self.screen_left_to_render
+        self.screen_right = self.screen_right_to_render
         # render the backgrounds of the words
         for screen_switch, background_top_left, background_bottom_right, background_color in self.words_background_queue:
             if screen_switch == 'left':
@@ -161,15 +160,22 @@ class Visualizer(object):
             elif screen_switch == 'right':
                 cv2.rectangle(self.screen_right, background_top_left, background_bottom_right, background_color, -1)
         # render the words
-        for word, screen_switch, words_top_left, words_bottom_right, font_face, font_scale, color, thickness in self.words_queue:
+        for word, screen_switch, words_position, font_face, font_scale, color, thickness in self.words_queue:
             if screen_switch == 'left':
-                cv2.putText(self.screen_left, word, words_top_left, font_face, font_scale, color, thickness)
+                cv2.putText(self.screen_left, word, words_position, font_face, font_scale, color, thickness)
             elif screen_switch == 'right':
-                cv2.putText(self.screen_right, word, words_top_left, font_face, font_scale, color, thickness)
+                cv2.putText(self.screen_right, word, words_position, font_face, font_scale, color, thickness)
         # add the screens to the screen
         self.screen[:,:self.width_left, :] = self.screen_left
         self.screen[:,self.width_left:, :] = self.screen_right
-    
+
+        # empty the queues
+        self.words_queue = []
+        self.words_background_queue = []
+        self.screen_left_to_render = np.zeros((self.height, self.width_left, 3), dtype=np.uint8)
+        self.screen_right_to_render = np.zeros((self.height, self.width_right, 3), dtype=np.uint8)
+
+
     def show(self) -> None:
         """
         show the screen
@@ -179,10 +185,18 @@ class Visualizer(object):
         # show the screen
         cv2.imshow(self.window_name, self.screen)
         # wait for 1ms
-        cv2.waitKey(1)
+        key_pressed = cv2.waitKey(1) & 0xFF
+        for key, event in zip(self.keys, self.events):
+            if key_pressed == ord(key):
+                event()
 
     def close(self) -> None:
         """
         close the window
         """
-        cv2.destroyWindow(self.window_name)
+        try:
+            # destroy the window if it exists
+            if cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) >= 0:
+                cv2.destroyWindow(self.window_name)
+        except:
+            pass # if the window does not exist, ignore the error
