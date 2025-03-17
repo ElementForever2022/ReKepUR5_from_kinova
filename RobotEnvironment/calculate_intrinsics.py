@@ -52,7 +52,7 @@ class CalculateIntrinsics:
 
         # end of initialization
 
-    def shoot_images(self, shoot_key:str='s', exit_key:str='q', empty_cache_key:str='r'):
+    def shoot_images(self, shoot_key:str='s', exit_key:str='q', empty_cache_key:str='r', calculate_intrinsics_key:str='i'):
         """
         shoot images from the camera
 
@@ -60,7 +60,7 @@ class CalculateIntrinsics:
             - shoot_key: the key to press to shoot an image, default is 's'
             - exit_key: the key to press to exit the shooting loop, default is 'q'
             - empty_cache_key: the key to press to empty the cache directory, default is 'r'
-            - save_dir: the directory path where the captured images will be saved, default is './intrinsics_images'
+            - calculate_intrinsics_key: the key to press to calculate the intrinsics, default is 'i'
         """
         # check if the save directory exists
         if not self.save_path.exists():
@@ -74,6 +74,7 @@ class CalculateIntrinsics:
             shoot_key = shoot_key.lower()
             exit_key = exit_key.lower()
             empty_cache_key = empty_cache_key.lower()
+            calculate_intrinsics_key = calculate_intrinsics_key.lower()
         except Exception as e:
             raise Exception(f'Unknown Exception: {e}')
 
@@ -81,7 +82,7 @@ class CalculateIntrinsics:
         camera = self.camera_manager.get_camera(self.camera_position)
 
         # keep looping until the specific exit key is pressed
-        self.shoot_loop(camera=camera, shoot_key=shoot_key, exit_key=exit_key, empty_cache_key=empty_cache_key)
+        self.shoot_loop(camera=camera, shoot_key=shoot_key, exit_key=exit_key, empty_cache_key=empty_cache_key, calculate_intrinsics_key=calculate_intrinsics_key)
 
     @debug_decorator(
         head_message='shooting images...',
@@ -89,7 +90,7 @@ class CalculateIntrinsics:
         color_name='COLOR_CYAN',
         bold=True
     )
-    def shoot_loop(self, camera:RealsenseCamera, shoot_key:str='s', exit_key:str='q', empty_cache_key:str='r') -> None:
+    def shoot_loop(self, camera:RealsenseCamera, shoot_key:str='s', exit_key:str='q', empty_cache_key:str='r', calculate_intrinsics_key:str='i') -> None:
         """
         shoot images from the camera
         
@@ -98,6 +99,7 @@ class CalculateIntrinsics:
             - shoot_key: the key to press to shoot an image, default is 's'
             - exit_key: the key to press to exit the shooting loop, default is 'q'
             - empty_cache_key: the key to press to empty the cache directory, default is 'r'
+            - calculate_intrinsics_key: the key to press to calculate the intrinsics, default is 'i'
         """
         # file tree width
         
@@ -110,7 +112,10 @@ class CalculateIntrinsics:
 
         # screen message: "press 'somekey' to exit"
         # calculate text size and baseline
-        messages = [f'Press "{exit_key.upper()}" to exit', f'Press "{shoot_key.upper()}" to shoot images', f'Press "{empty_cache_key.upper()}" to empty cache']
+        messages = [f'Press "{exit_key.upper()}" to exit', 
+                    f'Press "{shoot_key.upper()}" to shoot images',
+                    f'Press "{empty_cache_key.upper()}" to empty cache',
+                    f'Press "{calculate_intrinsics_key.lower()}" to calculate intrinsics']
         fontFace = cv2.FONT_HERSHEY_SIMPLEX
         fontScale = 0.5
         message_color=(255,255,0) # cyan text
@@ -137,7 +142,8 @@ class CalculateIntrinsics:
             _ret, _corners2, annotated_color_image = self.__detect_chessboard(
                                         color_image,
                                         self.chessboard_shape)
-            screen[:,:self.width, :] = color_image # color image
+            # screen[:,:self.width, :] = color_image # color image
+            screen[:,:self.width, :] = annotated_color_image # annotated color image
 
             # screen message demo
             (text_width, text_height), baseline = cv2.getTextSize(messages[0], fontFace, fontScale, message_thickness)
@@ -168,8 +174,10 @@ class CalculateIntrinsics:
             # demo the screen
             cv2.imshow('camera_'+camera.serial_number+' Realtime Viewer', screen)
 
-            ord_key_pressed = cv2.waitKey(1) & 0xFF
 
+            # get the key pressed
+            ord_key_pressed = cv2.waitKey(1) & 0xFF
+            # key event
             if ord_key_pressed == ord(exit_key):
                 cv2.destroyWindow('camera_'+camera.serial_number+' Realtime Viewer')
                 break
@@ -185,6 +193,11 @@ class CalculateIntrinsics:
                 # empty cache
                 os.system(f"rm -rf {self.save_path}/*")
                 print_debug(f"cache {self.save_path} has been emptied", color_name='COLOR_GREEN')
+            elif ord_key_pressed == ord(calculate_intrinsics_key):
+                # calculate intrinsics
+                calculated_intrinsics_matrix = self.calculate_intrinsics()
+                print_debug(f"intrinsics have been calculated:\n{calculated_intrinsics_matrix}", color_name='COLOR_GREEN')
+                print_debug(f"camera intrinsics:\n{camera.intrinsics_matrix}", color_name='COLOR_GREEN')
 
 
     def calculate_intrinsics(self):
@@ -259,10 +272,11 @@ class CalculateIntrinsics:
 
             # begin to annotate and draw the corners
             cv2.drawChessboardCorners(annotated_color_image, chessboard_shape, corners, ret)
-
+        else:
+            corners_subpixel = None
         # return the results
         return ret, corners_subpixel, annotated_color_image
 
 if __name__ == '__main__':
-    calculate_intrinsics = CalculateIntrinsics(pc_id=2, chessboard_shape=(8,6), square_size=0, camera_position='global')
-    calculate_intrinsics.shoot_images(shoot_key='s', exit_key='q', empty_cache_key='r')
+    calculate_intrinsics = CalculateIntrinsics(pc_id=2, chessboard_shape=(5,8), square_size=0.0261111, camera_position='global')
+    calculate_intrinsics.shoot_images(shoot_key='s', exit_key='q', empty_cache_key='r', calculate_intrinsics_key='i')
