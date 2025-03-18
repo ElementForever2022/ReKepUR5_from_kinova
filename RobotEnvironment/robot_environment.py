@@ -17,6 +17,9 @@ from visualizer import Visualizer
 from auto_callibration import AutoCallibrator
 from camera_manager import CameraManager
 from debug_decorators import debug_decorator, print_debug
+import Servoj_RTDE_UR5.rtde.rtde as rtde
+import Servoj_RTDE_UR5.rtde.rtde_config as rtde_config
+from Servoj_RTDE_UR5.min_jerk_planner_translation import PathPlanTranslation
 
 class RobotEnvironment(Visualizer):
     """
@@ -41,6 +44,36 @@ class RobotEnvironment(Visualizer):
         self.events = []
         self.__set_keys()
 
+
+    def run_loop(self):
+        """
+        the main loop of the robot environment
+        """
+        while True:
+            self.set_screen_middle(self.camera.get_color_image())
+
+            self.show()
+
+    def __set_keys(self,
+                   quit_key: str = 'q',
+                   warm_up_key: str = 'm',
+                   ):
+        """
+        set up the keys
+        """
+        self.keys.extend([quit_key, warm_up_key])
+        self.events.extend([self.__quit, self.__warm_up])
+
+        self.key_message = [f"Press '{quit_key}' to quit",
+                            f"Press '{warm_up_key}' to warm up the robot"]
+
+    def __quit(self):
+        """
+        quit the robot environment
+        """
+        self.close()
+        sys.exit(0)
+
     def __warm_up(self):
         """
         warm up the robot
@@ -50,33 +83,9 @@ class RobotEnvironment(Visualizer):
             return
         self.warmed_up = True
         print_debug('warming up the robot...', color_name='COLOR_WHITE')
-        time.sleep(1)
+        # TODO: warm up the robot
+        
         print_debug('robot warmed up!', color_name='COLOR_WHITE')
-
-    def run_loop(self):
-        """
-        the main loop of the robot environment
-        """
-        while True:
-            self.set_screen_left(self.camera.get_color_image())
-
-            self.show()
-
-    def __set_keys(self,
-                   quit_key: str = 'q',
-                   ):
-        """
-        set up the keys
-        """
-        self.keys.extend([quit_key])
-        self.events.extend([self.__quit])
-
-    def __quit(self):
-        """
-        quit the robot environment
-        """
-        self.close()
-        sys.exit(0)
 
 if __name__ == '__main__':
     robot_environment = RobotEnvironment(pc_id=2)

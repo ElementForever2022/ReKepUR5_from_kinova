@@ -440,8 +440,7 @@ class IntrinsicsCalculator(Visualizer):
                                         self.chessboard_shape)
             
             # add the annotated image to the screen
-            self.set_screen_left(annotated_color_image)
-
+            self.set_screen_middle(annotated_color_image)
             # add key message to the screen
             self.add_words(words=key_message, screen_switch='left', 
                        position=key_message_position, color=key_message_color, 

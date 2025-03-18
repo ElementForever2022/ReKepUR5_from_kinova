@@ -138,7 +138,7 @@ class AutoCallibrator(IntrinsicsCalculator):
             _ret, _corners2, annotated_color_image = self._detect_chessboard(
                                         color_image,
                                         self.chessboard_shape)
-            self.set_screen_left(annotated_color_image)
+            self.set_screen_middle(annotated_color_image)
 
             # add key message to the screen
             self.add_words(words=key_message, screen_switch='left', 
@@ -300,7 +300,7 @@ class AutoCallibrator(IntrinsicsCalculator):
         the clicked point coordinates will be set
         """
         if event == cv2.EVENT_LBUTTONDOWN:
-            if x < 0 or x >= self.width or y < 0 or y >= self.height:
+            if x < self.width_left or x >= self.width_left+self.width_middle or y < 0 or y >= self.height:
                 # out of the screen
                 return
             if self.robot2camera is None:

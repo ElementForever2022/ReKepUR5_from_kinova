@@ -21,7 +21,7 @@ class Visualizer(object):
         color_name='COLOR_WHITE',
         bold=True
     )
-    def __init__(self, height:int=480, width_left:int=640, width_right:int=640, window_name:str='screen') -> None:
+    def __init__(self, height:int=480, width_left:int=640, width_right:int=640, width_middle:int=640, window_name:str='screen') -> None:
         """
         initialize the visualizer
 
@@ -35,15 +35,18 @@ class Visualizer(object):
         self.height = height
         self.width_left = width_left
         self.width_right = width_right
-        self.width = self.width_left + self.width_right
+        self.width_middle = width_middle
+        self.width = self.width_left + self.width_right + self.width_middle
 
         # initialize the screen
         self.screen = np.zeros((self.height, self.width, 3), dtype=np.uint8)
         # initialize the left and right screen
         self.screen_left = np.zeros((self.height, self.width_left, 3), dtype=np.uint8)
         self.screen_right = np.zeros((self.height, self.width_right, 3), dtype=np.uint8)
+        self.screen_middle = np.zeros((self.height, self.width_middle, 3), dtype=np.uint8)
         self.screen_left_to_render = np.zeros((self.height, self.width_left, 3), dtype=np.uint8)
         self.screen_right_to_render = np.zeros((self.height, self.width_right, 3), dtype=np.uint8)
+        self.screen_middle_to_render = np.zeros((self.height, self.width_middle, 3), dtype=np.uint8)
         
         # initialize the words queue
         self.words_queue = [] # list of words to be added to the screen
@@ -85,6 +88,8 @@ class Visualizer(object):
             - screen: np.ndarray (H,W,3), the left screen to be set
         """
         self.screen_left_to_render = screen
+    
+
 
     def set_screen_right(self, screen:np.ndarray) -> None:
         """
@@ -94,6 +99,15 @@ class Visualizer(object):
             - screen: np.ndarray (H,W,3), the right screen to be set
         """
         self.screen_right_to_render = screen
+    
+    def set_screen_middle(self, screen:np.ndarray) -> None:
+        """
+        set the middle screen
+
+        inputs:
+            - screen: np.ndarray (H,W,3), the middle screen to be set
+        """
+        self.screen_middle_to_render = screen
 
     def add_words(self, words:list[str]|str, screen_switch:str, position:tuple[int,int],
                   font_face:int=cv2.FONT_HERSHEY_SIMPLEX, font_scale:float=0.75,
@@ -137,31 +151,37 @@ class Visualizer(object):
         """
         render the screen, add background to the screen and render the words
         """
-        self.screen = np.zeros((self.height, self.width_left+self.width_right, 3), dtype=np.uint8)
+        self.screen = np.zeros((self.height, self.width_left+self.width_right+self.width_middle, 3), dtype=np.uint8)
         self.screen_left = self.screen_left_to_render
         self.screen_right = self.screen_right_to_render
+        self.screen_middle = self.screen_middle_to_render
         # render the backgrounds of the words
         for screen_switch, background_top_left, background_bottom_right, background_color in self.words_background_queue:
             if screen_switch == 'left':
                 cv2.rectangle(self.screen_left, background_top_left, background_bottom_right, background_color, -1)
             elif screen_switch == 'right':
                 cv2.rectangle(self.screen_right, background_top_left, background_bottom_right, background_color, -1)
+            elif screen_switch == 'middle':
+                cv2.rectangle(self.screen_middle, background_top_left, background_bottom_right, background_color, -1)
         # render the words
         for word, screen_switch, words_position, font_face, font_scale, color, thickness in self.words_queue:
             if screen_switch == 'left':
                 cv2.putText(self.screen_left, word, words_position, font_face, font_scale, color, thickness)
             elif screen_switch == 'right':
                 cv2.putText(self.screen_right, word, words_position, font_face, font_scale, color, thickness)
+            elif screen_switch == 'middle':
+                cv2.putText(self.screen_middle, word, words_position, font_face, font_scale, color, thickness)
         # add the screens to the screen
         self.screen[:,:self.width_left, :] = self.screen_left
-        self.screen[:,self.width_left:, :] = self.screen_right
+        self.screen[:,self.width_left:self.width_left+self.width_middle, :] = self.screen_middle
+        self.screen[:,self.width_left+self.width_middle:, :] = self.screen_right
 
         # empty the queues
         self.words_queue = []
         self.words_background_queue = []
         self.screen_left_to_render = np.zeros((self.height, self.width_left, 3), dtype=np.uint8)
         self.screen_right_to_render = np.zeros((self.height, self.width_right, 3), dtype=np.uint8)
-
+        self.screen_middle_to_render = np.zeros((self.height, self.width_middle, 3), dtype=np.uint8)
 
     def show(self) -> None:
         """
