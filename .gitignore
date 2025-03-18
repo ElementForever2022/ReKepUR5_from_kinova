@@ -14,3 +14,5 @@ xlp_biaoding/matrix_world2robot
 xlp_biaoding/robot2cameraMartix.txt
 
 RobotEnvironment/intrinsics_images/
+RobotEnvironment/templatefile.json
+RobotEnvironment/auto_callibration.json

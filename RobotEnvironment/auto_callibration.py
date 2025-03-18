@@ -45,6 +45,7 @@ class AutoCallibrator(IntrinsicsCalculator):
 
         # initialize the robot2camera matrix
         self.robot2camera = None
+        self.save_file = save_file
 
         # initialize the clicked point coordinates
         self.click_pixel_coords = None # the pixel coordinates of the clicked point: (u,v)
@@ -170,6 +171,8 @@ class AutoCallibrator(IntrinsicsCalculator):
                               f"    x={demo_x_position:.2f} y={demo_y_position:.2f}",
                               f"chessboard orientation: ",
                               f"    x={self.chessboard_rvecs[0]:.2f} y={self.chessboard_rvecs[1]:.2f} z={self.chessboard_rvecs[2]:.2f}"
+                              f"",
+                              f"from calculated intrinsics: {self.from_calculated_intrinsics}"
                               ]
             # add intrinsics message to the screen
             self.add_words(words=intrinsics_message, screen_switch='right', 
@@ -201,8 +204,20 @@ class AutoCallibrator(IntrinsicsCalculator):
         """
         the event to save the matrix
         """
+        if self.robot2camera is None:
+            print_debug('Please callibrate the camera first', color_name='COLOR_RED')
+            return
         print_debug('saving the matrix', color_name='COLOR_GREEN')
-
+        current_dir = pathlib.Path(__file__).parent
+        template_file = current_dir / 'templatefile.json'
+        with open(template_file, 'r') as f:
+            template_data = json.load(f)
+        template_data['misc']['world2robot_homo'] = self.robot2camera.tolist()
+        with open(current_dir / self.save_file, 'w') as f:
+            json.dump(template_data, f, indent=4, ensure_ascii=False, sort_keys=True)
+        print_debug(f'matrix saved to {current_dir / self.save_file}', color_name='COLOR_GREEN')
+    
+    
     def __callibrate(self)->None:
         """
         the event to callibrate the camera
@@ -281,13 +296,19 @@ class AutoCallibrator(IntrinsicsCalculator):
 
     def __mouse_callback(self, event, x, y, flags, param)->None:
         """
-        the mouse callback
+        the mouse callback, when the left button is clicked, 
+        the clicked point coordinates will be set
         """
         if event == cv2.EVENT_LBUTTONDOWN:
-            if self.robot2camera is None and self.from_calculated_intrinsics:
+            if x < 0 or x >= self.width or y < 0 or y >= self.height:
+                # out of the screen
+                return
+            if self.robot2camera is None:
                 print_debug('please callibrate the camera first', color_name='COLOR_RED')
                 return
-            # print(f'clicked at ({x}, {y})')
+            if self.from_calculated_intrinsics and self.calculated_intrinsics_matrix is None:
+                print_debug('please calculate the intrinsics first', color_name='COLOR_RED')
+                return
             # get the depth
             depth = self.camera.get_depth_image()[y, x]/1000
             # get the robot coordinates
