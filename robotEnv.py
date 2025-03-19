@@ -723,31 +723,6 @@ class ur5Robot:
         else:
             print(f"Invalid gripper state:{gripper_state}")
 
-#？？这个类下面的其他方法有没有用？
-
-    # def move_j(self, joint_positions, speed=1.0, acceleration=1.0):
-    #     """
-    #     关节空间运动
-    #     Args:
-    #         joint_positions: 目标关节角度 [j1, j2, j3, j4, j5, j6]
-    #         speed: 运动速度比例 (0.0-1.0)
-    #         acceleration: 加速度比例 (0.0-1.0)
-    #     """
-    #     pass
-
-
-
-    # def move_p(self, target_pose, speed=0.25, acceleration=0.5, blend_radius=0.05):
-    #     """
-    #     笛卡尔空间点到点运动（带圆弧过渡）
-    #     Args:
-    #         target_pose: 目标位姿 [x, y, z, rx, ry, rz]
-    #         speed: 运动速度 (m/s)
-    #         acceleration: 加速度 (m/s^2)
-    #         blend_radius: 圆弧过渡半径 (m)
-    #     """
-    #     pass
-
     def get_joint_positions(self):
         """
         获取当前关节角度

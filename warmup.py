@@ -39,6 +39,7 @@ while connection_state != 0:
     time.sleep(0.5)
     connection_state = con.connect()
 print("---------------Successfully connected to the robot-------------\n")
+print("---------------Successfully connected to the robot-------------\n")
 
 con.get_controller_version()
 

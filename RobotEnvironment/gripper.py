@@ -8,8 +8,8 @@ import os # for file operation
 import pathlib # for file path
 
 # import necessary modules
-from motor_controller import MotorController # for motor control
-from debug_decorators import print_debug,debug_decorator # for debug
+from .motor_controller import MotorController # for motor control
+from .debug_decorators import print_debug,debug_decorator # for debug
 
 class Gripper(MotorController):
     """
