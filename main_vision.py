@@ -106,6 +106,8 @@ class MainVision:
         results = gdino.detect_objects(rgb_path, obj_list)
         return results
 
+
+
     @timer_decorator
     def perform_task(self, instruction,obj_list, data_path, frame_number):
         # BUG: name for  color is not consistent

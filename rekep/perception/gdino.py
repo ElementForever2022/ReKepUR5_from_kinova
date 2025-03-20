@@ -28,6 +28,9 @@ class GroundingDINO:
         )
         self.client.run_task(task)
         return task.result
+    
+    # def __detect_objects_with_photo(self, color_frame, input_prompts):
+
 
     def rle2rgba(self, rle_mask):
         # Create a dummy task with minimal required arguments

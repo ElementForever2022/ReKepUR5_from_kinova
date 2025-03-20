@@ -746,8 +746,8 @@ if __name__ == "__main__":
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-25_15-47-47_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-26_10-35-40_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-04_19-23-52_help_me_take_the_block'
-    newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-13_10-55-33_help_me_grasp_the_rectangular_cake_and_drop_it_on_the_pen_tip'
-
+    # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-13_10-55-33_help_me_grasp_the_rectangular_cake_and_drop_it_on_the_pen_tip'
+    newest_rekep_dir = './vlm_query/2025-03-20_16-27-43_help_me_grasp_the_rectangular_cake_and_drop_it_on_the_pen_tip'
     
     main = MainR2D2(visualize=args.visualize)
     main.perform_task(instruction=args.instruction, rekep_program_dir=newest_rekep_dir)

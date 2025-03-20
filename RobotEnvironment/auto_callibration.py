@@ -11,20 +11,20 @@ import json
 from scipy.spatial.transform import Rotation as R
 
 # import necessary modules
-from camera_manager import CameraManager # to get the camera
-from calculate_intrinsics import IntrinsicsCalculator # to visualize the images and calculate the intrinsics
-from debug_decorators import debug_decorator,print_debug # to print debug information
+from .camera_manager import CameraManager # to get the camera
+from .calculate_intrinsics import IntrinsicsCalculator # to visualize the images and calculate the intrinsics
+from .debug_decorators import debug_decorator,print_debug # to print debug information
 
 class AutoCallibrator(IntrinsicsCalculator):
-    def __init__(self,pc_id:int, camera_position: str, chessboard_shape: tuple, square_size: float, save_file: str='./auto_callibration', window_name:str='auto_callibration')->None:
+    def __init__(self,pc_id:int, camera_position: str, chessboard_shape: tuple, square_size: float, save_file: str='./auto_callibration.json', window_name:str='auto_callibration')->None:
         """
         initialize the auto callibrator
 
         inputs:
             - pc_id: int, the id of the pc
             - camera_position: str, the position of the camera, ['left', 'right']
-            - chessboard_shape: tuple, the shape of the chessboard
-            - square_size: float, the size of the square
+            - chessboard_shape: tuple, the shape of the chessboard, like a (9,6)-blocked chessboard oughted to be (8,5) as input
+            - square_size: float, the size of the square, in meters, usually 0.0261
             - save_file: str, the file to save the results
             - window_name: str, the name of the window, default is 'auto_callibration'
         """
@@ -212,7 +212,9 @@ class AutoCallibrator(IntrinsicsCalculator):
         template_file = current_dir / 'templatefile.json'
         with open(template_file, 'r') as f:
             template_data = json.load(f)
-        template_data['misc']['world2robot_homo'] = self.robot2camera.tolist()
+        # template_data['misc']['world2robot_homo'] = self.robot2camera.tolist()
+        # save the inverse matrix
+        template_data['misc']['world2robot_homo'] = np.linalg.inv(self.robot2camera).tolist()
         with open(current_dir / self.save_file, 'w') as f:
             json.dump(template_data, f, indent=4, ensure_ascii=False, sort_keys=True)
         print_debug(f'matrix saved to {current_dir / self.save_file}', color_name='COLOR_GREEN')
@@ -254,7 +256,7 @@ class AutoCallibrator(IntrinsicsCalculator):
         obj_points[:, :2] = np.mgrid[0:self.chessboard_shape[0], 0:self.chessboard_shape[1]].T.reshape(-1, 2) * self.square_size
         obj_points_list.append(obj_points)
 
-        img_list = [os.path.join(self.save_dir, name) for name in os.listdir(self.save_dir)]
+        img_list = [os.path.join(self.save_path, name) for name in os.listdir(self.save_path)]
         for i in range(len(obj_points_list)):
             if img_list[i].split('.')[-1] != 'png':
                 continue
@@ -310,6 +312,7 @@ class AutoCallibrator(IntrinsicsCalculator):
                 print_debug('please calculate the intrinsics first', color_name='COLOR_RED')
                 return
             # get the depth
+            x  = x-self.width_left
             depth = self.camera.get_depth_image()[y, x]/1000
             # get the robot coordinates
             if self.from_calculated_intrinsics:

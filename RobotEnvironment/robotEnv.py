@@ -33,7 +33,8 @@ import threading
 
 from .gripper import Gripper
 
-
+from .debug_decorators import debug_decorator, print_debug
+from .camera_manager import CameraManager
 # Manager to control the cameras
 class Cameras:
     def __init__(self):
@@ -242,29 +243,40 @@ class Camera:
 
 
 class RobotEnv:
-    def __init__(self, ip='192.168.0.201', port=30004):
+    def __init__(self,pc_id:int, warm_up:bool=True):
         
          # 初始化真实机械臂环境
 
 
         # 连接机器人    
-        self.ip = ip
-        self.port = port
+        if pc_id not in [1,2]:
+            raise ValueError(f'pc_id must be 1 or 2, but got {pc_id}')
+        self.pc_id = pc_id
+        if self.pc_id == 2:
+            self.ip = '192.168.0.201'
+            self.port = 30004
+        elif self.pc_id == 1:
+            self.ip = '192.168.1.201'
+            self.port = 30004
 
         print('prepare to warm up!!!')
-        os.system('python warmup.py')
+        if warm_up:
+            os.system('python warmup.py')
 
         # 初始化机械臂
-        self.robot = ur5Robot(ip, port)
+        self.robot = ur5Robot(self.ip, self.port)
         
         # 其他初始化代码
         
         # initialize camera
-        self.cameras = Cameras()
-        self.view2camera = self.cameras.view2camera # 将view映射到camera对象
+        # self.cameras = Cameras()
+        # self.view2camera = self.cameras.view2camera # 将view映射到camera对象
 
-        self.global_camera = self.view2camera['global']
-        self.wrist_camera = self.view2camera['wrist']
+        # self.global_camera = self.view2camera['global']
+        # self.wrist_camera = self.view2camera['wrist']
+        self.cameras = CameraManager(self.pc_id)
+        self.global_camera = self.cameras.get_camera('global')
+        self.wrist_camera = self.cameras.get_camera('wrist')
 
         # 实时将tcp_pose更新
         self.tcp_pose = np.zeros(6)
@@ -284,7 +296,8 @@ class RobotEnv:
         pass
 
     def __del__(self):
-        self.robot.__del__()
+        # self.robot.__del__()
+        pass
     
     def get_joint_positions(self):
         """
