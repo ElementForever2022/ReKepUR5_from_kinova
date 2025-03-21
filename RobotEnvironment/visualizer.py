@@ -196,6 +196,9 @@ class Visualizer(object):
         for key, event in zip(self.keys, self.events):
             if key_pressed == ord(key):
                 event()
+        # else:
+        #     if key_pressed != 0xFF:
+        #         print(f'key id:{key_pressed} not found, char={[chr(key_pressed)]}')
 
     def close(self) -> None:
         """

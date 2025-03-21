@@ -1,5 +1,6 @@
 # from robotEnv import RobotEnv
 from RobotEnvironment.robotEnv import RobotEnv
+from RobotEnvironment.robot_environment import RobotEnvironment
 from RobotEnvironment.visualizer import Visualizer
 
 
@@ -40,6 +41,8 @@ class RekepMain(Visualizer):
 
 
 if __name__ == "__main__":
-    instruction = 'help me grasp the cake'
-    rekep_main = RekepMain(2, instruction)
-    rekep_main.main_loop()
+    # instruction = 'help me grasp the cake'
+    # rekep_main = RekepMain(2, instruction)
+    # rekep_main.main_loop()
+    re = RobotEnvironment(2)
+    re.run_loop()

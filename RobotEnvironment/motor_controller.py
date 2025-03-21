@@ -42,6 +42,7 @@ class MotorController(object):
         self.realtime_properties = {}
 
         # set a thread to update the realtime property
+        self.keep_alive = True
         self.update_thread = threading.Thread(target=self.update_loop)
         self.update_thread.daemon = True # daemon thread
         self.update_thread.start() # start the thread
@@ -97,14 +98,14 @@ class MotorController(object):
     def __setitem__(self, name: str, value: float):
         self._set_realtime_property(name, value)
     
-    def update_loop(self, period: float=0.1):
+    def update_loop(self, period: float=0.01):
         """
         a loop to update the realtime property
 
         inputs:
             period: float, the period of the update loop, default is 0.1s
         """
-        while True:
+        while self.keep_alive:
             if self.ready:
                 self.update()
             time.sleep(period)
@@ -119,4 +120,6 @@ class MotorController(object):
     
     def __del__(self):
         # stop the thread when the motor controller is deleted
+        self.keep_alive = False
         self.update_thread.join(timeout=1.0)
+        # pass
