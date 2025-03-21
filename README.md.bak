@@ -1,50 +1,5 @@
-# Our Reproduction of ReKep on **UR5e** based on Tony's repo
-
-## Our facilities
-- Our robotic arm: UR5e https://www.universal-robots.com/products/ur5e/
-- Our gripper: MS42DC stepping motor driven flexible gripper
-- Our camera(s): Realsense D435i
-- Our CPU: Intel(R) Xeon(R) Gold 5218 CPU @ 2.30GHz
-- Our GPU: NVIDIA RTX A6000 (CUDA 12.6)
-- Our OS: Ubuntu 20.04
-- Our Python version: 3.10.12
-
-## How to contact us
-- Shiyi Wang: wangshiyi2021@163.com
-- Yiteng Chen: 1842710211@qq.com
-- Wenbo Li: 1962672280@qq.com
-
-## How to use our code
-### environment setup
-```bash
-mkdir -p rekep_env
-tar -xzf rekep_env.tar.gz -C rekep_env
-source rekep_env/bin/activate
-```
-### environment export
-```bash
-conda pack -n rekep4real -o rekep_env.tar.gz
-```
-
-### Callibration
-Make sure you are at the root of the repo, then run:
-```bash
-python RobotEnvironment/auto_calibration.py
-```
-It may notice you that <font color='red'>camera is not found</font>. You need to manually set the camera serial number in the "RobotEnvironment/registered_camera.csv".
-
-### Whole pipeline
-The pipeline is composed of 3 parts:
-0. Callibration: The matrix of world2robot is stored in <font color='orange'>./xlp_biaoding/matrix_world2robot</font>, make sure it has been generated and copied to robot_state.json's "misc"["world2robot_homo"].
-1. Photo shooting
-2. action pipeline: ./main_rekep.py
-3. real world experiments: Please refer to VLM_query/readme.md
-
-## File structure
-### Files of importance
-- RobotEnvironment: our implementation of the robot environment(rekep-related are NOT included)
-- rekep: original repo of rekep(may be already modified)
-- 
+# Our Reproduction of ReKep based on Tony's repo for Franka
+Our robotic arm is UR5e
 
 below are their original README content:
 
