@@ -35,12 +35,75 @@ It may notice you that <font color='red'>camera is not found</font>. You need to
 
 ### Whole pipeline
 The pipeline is composed of 3 parts:
-0. Callibration: The matrix of world2robot is stored in <font color='orange'>./xlp_biaoding/matrix_world2robot</font>, make sure it has been generated and copied to robot_state.json's "misc"["world2robot_homo"].
-1. Photo shooting
-2. action pipeline: ./main_rekep.py
-3. real world experiments: Please refer to VLM_query/readme.md
+- 0. Callibration: The matrix of world2robot is stored in <font color='orange'>./xlp_biaoding/matrix_world2robot</font>, make sure it has been generated and copied to robot_state.json's "misc"["world2robot_homo"].
+- 1. Photo shooting
+- 2. Query VLM and generate actions
+- 3. Execute actions
+
+After the callibration, you can run the pipeline by running:
+```bash
+# 1. Photo shooting
+python photo.py --frame_number 2
+# 2. Query VLM and generate actions
+python main_vision.py --instruction "help me grasp the rectangular cake and move up" --obj_list 'rectangular cake' --data_path /home/ur5/rekep/ReKepUR5_from_kinova/data --frame_number 2
+# modify the 750th line of r2d2_rekep.py to the path of the vlm_query directory
+
+# 3. Execute actions
+python r2d2_rekep.py
+```
 
 ## File structure
+### Template Classes
+dir: RobotEnvironment
+The files are the template classes of the robot environment.
+#### base classes
+**Visualizer**: a class for visualization, with 3 screens, "left","middle","right". By inheriting this class, you can visualize the robot and the environment. It contains the following functions:
+- add_words: add text to the screen
+- add_keys: add short cut keys to the screen
+- set_screen_left/middle/right: set the left/middle/right screen
+- show: render the background image and words to the screen and show the screen
+- close: close the window
+
+Here is a template to create a class inheriting from Visualizer:
+```python
+class MyVisualizer(Visualizer):
+    def __init__(self):
+        super().__init__()
+
+        self.camera = Camera()
+        self.add_keys(
+            ['q','s'],
+            [self.__quit,self.__shoot])
+    def loop(self):
+        self.keep_looping = True
+        while self.keep_looping:
+            self.add_words([
+                'line1',
+                'line2',
+                'line3',
+            ],'left',(100,100))
+            self.set_screen_middle(self.camera.get_image())
+            
+            self.show()
+        
+        self.close()
+    def __quit(self):
+        self.keep_looping = False
+    def __shoot(self):
+        self.frame = self.camera.get_image()
+```
+
+**MotorController**: a class for controlling the robot. It maintains several variables that are FREQUENTLY updated in the robot environment. By implementing the `update` method, you can update the variables and the robot environment will automatically update the robot state.
+
+#### Debug functions(in RobotEnvironment/debug_decorators.py):
+- `@debug_decorator`: a decorator for debug functions. It will print the debug information to the console at the beginning and end of the function.
+- `print_debug`: a function for printing debug information to the console.
+
+#### Class Diagram(UML)
+<img src="out/UML_classes/UML_classes.png" alt="UML Diagram" width="800">
+<img src="out/UML_decorators/UML_decorators.png" alt="UML Diagram" width="800">
+
+
 ### Files of importance
 - RobotEnvironment: our implementation of the robot environment(rekep-related are NOT included)
 - rekep: original repo of rekep(may be already modified)
