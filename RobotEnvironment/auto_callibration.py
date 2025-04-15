@@ -11,9 +11,9 @@ import json
 from scipy.spatial.transform import Rotation as R
 
 # import necessary modules
-from .camera_manager import CameraManager # to get the camera
-from .calculate_intrinsics import IntrinsicsCalculator # to visualize the images and calculate the intrinsics
-from .debug_decorators import debug_decorator,print_debug # to print debug information
+from camera_manager import CameraManager # to get the camera
+from calculate_intrinsics import IntrinsicsCalculator # to visualize the images and calculate the intrinsics
+from debug_decorators import debug_decorator,print_debug # to print debug information
 
 class AutoCallibrator(IntrinsicsCalculator):
     def __init__(self,pc_id:int, camera_position: str, chessboard_shape: tuple, square_size: float, save_file: str='./auto_callibration.json', window_name:str='auto_callibration')->None:

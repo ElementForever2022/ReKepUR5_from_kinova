@@ -8,8 +8,8 @@ from pynput import keyboard # for keyboard input
 import abc # for abstract base classes
 
 # import the necessary modules
-from .camera_manager import CameraManager # for camera management
-from .debug_decorators import debug_decorator, print_debug # for debugging
+from camera_manager import CameraManager # for camera management
+from debug_decorators import debug_decorator, print_debug # for debugging
 
 class Visualizer(object):
     """

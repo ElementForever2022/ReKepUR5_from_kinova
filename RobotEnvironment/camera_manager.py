@@ -3,7 +3,7 @@ define a class of camera manager that manages multiple cameras
 """
 
 # import necessary libs
-from .realsense_camera import RealsenseCamera # to use cameras
+from realsense_camera import RealsenseCamera # to use cameras
 import pandas as pd # read camera csv
 import pyrealsense2 as rs # official lib of RealSense Camneras
 import time # wait for cameras to initialize
@@ -11,7 +11,7 @@ import numpy as np # to handle numpy arrays
 import cv2 # OpenCV image process
 import pathlib # to get the path of the current file
 
-from .debug_decorators import print_debug,debug_decorator
+from debug_decorators import print_debug,debug_decorator
 
 
 class CameraManager(object):

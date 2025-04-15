@@ -10,10 +10,10 @@ import os # for os operations
 import numpy as np # for array operations
 
 # import the necessary modules
-from .realsense_camera import RealsenseCamera # to use cameras
-from .camera_manager import CameraManager # to use cameras
-from .debug_decorators import print_debug,debug_decorator # for debugging messages
-from .visualizer import Visualizer # for visualizing the images
+from realsense_camera import RealsenseCamera # to use cameras
+from camera_manager import CameraManager # to use cameras
+from debug_decorators import print_debug,debug_decorator # for debugging messages
+from visualizer import Visualizer # for visualizing the images
 
 class CalculateIntrinsics:
     def __init__(self, pc_id:int, chessboard_shape:tuple[int], square_size:float ,camera_position:str='global', save_dir:str="./intrinsics_images") -> None:

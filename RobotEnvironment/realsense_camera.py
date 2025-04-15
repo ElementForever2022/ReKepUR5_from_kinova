@@ -9,7 +9,7 @@ import time # to sleep for certain period
 import numpy as np # matrix calculation
 import cv2 # OpenCV image process
 
-from .debug_decorators import debug_decorator # method debug decorator
+from debug_decorators import debug_decorator # method debug decorator
 
 class RealsenseCamera(object):
     """

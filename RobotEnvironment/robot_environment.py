@@ -13,12 +13,15 @@ import sys
 import logging
 
 # import necessary modules
-from .visualizer import Visualizer
-from .auto_callibration import AutoCallibrator
-from .camera_manager import CameraManager
-from .debug_decorators import debug_decorator, print_debug
-from .motor_controller import MotorController
-from .gripper import Gripper
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+print(sys.path)
+# from . import Visualizer
+from visualizer import Visualizer
+from auto_callibration import AutoCallibrator
+from camera_manager import CameraManager
+from debug_decorators import debug_decorator, print_debug
+from motor_controller import MotorController
+from gripper import Gripper
 import Servoj_RTDE_UR5.rtde.rtde as rtde
 import Servoj_RTDE_UR5.rtde.rtde_config as rtde_config
 from Servoj_RTDE_UR5.min_jerk_planner_translation import PathPlanTranslation
@@ -455,7 +458,8 @@ class RobotEnvironment(Visualizer, MotorController):
         """
         if self.ready and self.warmed_up:
             if time.time()-self['last_grasp_time'] > self.gripper_work_time:
-                self.gripper.grasp()
+                # self.gripper.grasp()
+                self.gripper.close()
                 self['last_grasp_time'] = time.time()
             else:
                 print_debug(f'Gripper is still working, please wait...', color_name='COLOR_RED')
@@ -493,7 +497,232 @@ class RobotEnvironment(Visualizer, MotorController):
 
         self.all_state_ready = True
 
+    def script(self):
+        # warm up the robot
+        self.__warm_up()
+
+        # get current pose
+        starting_pose = self.__get_tcp_pose()
+        print('starting_pose:', starting_pose)
+
+        # object position
+        object_position_x = -0.5850
+        object_position_y = -0.0465
+        target_position_x = -0.3605
+        target_position_y = -0.3065
+        z_middle = 0.26
+        z_bottom = 0.20
+        z_top = 0.31
+
+        # destination poses
+        fixed_rotation = starting_pose[3:]
+        dest_pose_1 = [object_position_x, object_position_y, z_middle] + fixed_rotation
+        dest_pose_2 = [object_position_x, object_position_y, z_bottom] + fixed_rotation
+        dest_pose_3 = [target_position_x, target_position_y, z_top] + fixed_rotation
+        dest_pose_4 = [target_position_x, target_position_y, z_middle] + fixed_rotation
+
+        # move to the destination poses
+        self.__move_to_pose(dest_pose_1, 3)
+        self.__move_to_pose(dest_pose_2, 1)
+        self.__grasp()
+        self.__move_to_pose(dest_pose_3, 3)
+        self.__move_to_pose(dest_pose_4, 1)
+        self.__open()
+
+        # move back to the starting pose
+        self.__move_to_pose(starting_pose, 3)
+
+
+    def script_grasp_six_toy(self):
+        # warm up the robot
+        self.__warm_up()
+
+        # get current pose
+        starting_pose = self.__get_tcp_pose()
+        print('starting_pose:', starting_pose)
+
+        #3个高度
+        z_middle_1 = 0.26
+        z_bottom_1 = 0.20
+        z_top_1 = 0.35
+        z_toptop = 0.4
+
+
+        #机器人坐标系和桌子坐标系之间的偏移
+        delta_x = 0.1595
+        delta_y = 0.1235
+        
+        # 6个目标放置位置，桌子坐标系
+        target_position_x_1_desk = -0.5
+        target_position_y_1_desk = -0.41
+        target_position_x_2_desk = -0.5
+        target_position_y_2_desk = -0.48
+        target_position_x_3_desk = -0.57
+        target_position_y_3_desk = -0.41
+        target_position_x_4_desk = -0.57
+        target_position_y_4_desk = -0.48
+        target_position_x_5_desk = -0.64
+        target_position_y_5_desk = -0.41
+        target_position_x_6_desk = -0.64
+        target_position_y_6_desk = -0.48
+
+        # 6个目标放置位置，机器人坐标系
+        target_position_x_1 = target_position_x_1_desk + delta_x
+        target_position_y_1 = target_position_y_1_desk + delta_y
+        target_position_x_2 = target_position_x_2_desk + delta_x
+        target_position_y_2 = target_position_y_2_desk + delta_y
+        target_position_x_3 = target_position_x_3_desk + delta_x
+        target_position_y_3 = target_position_y_3_desk + delta_y
+        target_position_x_4 = target_position_x_4_desk + delta_x
+        target_position_y_4 = target_position_y_4_desk + delta_y
+        target_position_x_5 = target_position_x_5_desk + delta_x
+        target_position_y_5 = target_position_y_5_desk + delta_y
+        target_position_x_6 = target_position_x_6_desk + delta_x
+        target_position_y_6 = target_position_y_6_desk + delta_y
+
+        #################################################填写
+        # 6个目标抓取位置，桌子坐标系
+        object_position_x_1_desk = -0.54
+        object_position_y_1_desk = -0.21
+        object_position_x_2_desk = -0.61
+        object_position_y_2_desk = -0.08
+        object_position_x_3_desk = -0.65
+        object_position_y_3_desk = -0.19
+        object_position_x_4_desk = -0.70
+        object_position_y_4_desk = -0.28
+        object_position_x_5_desk = -0.77
+        object_position_y_5_desk = -0.14
+        object_position_x_6_desk = -0.81
+        object_position_y_6_desk = -0.22    
+        
+        # object position ，机器人坐标系
+        object_position_x_1 = object_position_x_1_desk + delta_x
+        object_position_y_1 = object_position_y_1_desk + delta_y
+        object_position_x_2 = object_position_x_2_desk + delta_x
+        object_position_y_2 = object_position_y_2_desk + delta_y
+        object_position_x_3 = object_position_x_3_desk + delta_x
+        object_position_y_3 = object_position_y_3_desk + delta_y
+        object_position_x_4 = object_position_x_4_desk + delta_x
+        object_position_y_4 = object_position_y_4_desk + delta_y
+        object_position_x_5 = object_position_x_5_desk + delta_x
+        object_position_y_5 = object_position_y_5_desk + delta_y
+        object_position_x_6 = object_position_x_6_desk + delta_x
+        object_position_y_6 = object_position_y_6_desk + delta_y
+
+        # destination poses
+        fixed_rotation = starting_pose[3:]
+        dest_pose_1_1 = [object_position_x_1, object_position_y_1, z_middle_1] + fixed_rotation
+        dest_pose_1_2 = [object_position_x_1, object_position_y_1, z_bottom_1] + fixed_rotation
+        dest_pose_1_3 = [object_position_x_1, object_position_y_1, z_middle_1] + fixed_rotation
+        dest_pose_1_4 = [target_position_x_1, target_position_y_1, z_top_1] + fixed_rotation
+        dest_pose_1_5 = [target_position_x_1, target_position_y_1, z_middle_1] + fixed_rotation
+        dest_pose_1_6 = [target_position_x_1, target_position_y_1, z_top_1] + fixed_rotation
+
+        dest_pose_2_1 = [object_position_x_2, object_position_y_2, z_middle_1] + fixed_rotation
+        dest_pose_2_2 = [object_position_x_2, object_position_y_2, z_bottom_1] + fixed_rotation
+        dest_pose_2_3 = [object_position_x_2, object_position_y_2, z_middle_1] + fixed_rotation
+        dest_pose_2_4 = [target_position_x_2, target_position_y_2, z_top_1] + fixed_rotation
+        dest_pose_2_5 = [target_position_x_2, target_position_y_2, z_middle_1] + fixed_rotation
+        dest_pose_2_6 = [target_position_x_2, target_position_y_2, z_top_1] + fixed_rotation
+               
+        dest_pose_3_1 = [object_position_x_3, object_position_y_3, z_middle_1] + fixed_rotation
+        dest_pose_3_2 = [object_position_x_3, object_position_y_3, z_bottom_1] + fixed_rotation
+        dest_pose_3_3 = [object_position_x_3, object_position_y_3, z_middle_1] + fixed_rotation
+        dest_pose_3_4 = [target_position_x_3, target_position_y_3, z_top_1] + fixed_rotation
+        dest_pose_3_5 = [target_position_x_3, target_position_y_3, z_middle_1] + fixed_rotation
+        dest_pose_3_6 = [target_position_x_3, target_position_y_3, z_top_1] + fixed_rotation    
+
+        dest_pose_4_1 = [object_position_x_4, object_position_y_4, z_middle_1] + fixed_rotation
+        dest_pose_4_2 = [object_position_x_4, object_position_y_4, z_bottom_1] + fixed_rotation
+        dest_pose_4_3 = [object_position_x_4, object_position_y_4, z_middle_1] + fixed_rotation
+        dest_pose_4_4 = [target_position_x_4, target_position_y_4, z_top_1] + fixed_rotation
+        dest_pose_4_5 = [target_position_x_4, target_position_y_4, z_middle_1] + fixed_rotation
+        dest_pose_4_6 = [target_position_x_4, target_position_y_4, z_top_1] + fixed_rotation
+
+        dest_pose_5_1 = [object_position_x_5, object_position_y_5, z_middle_1] + fixed_rotation
+        dest_pose_5_2 = [object_position_x_5, object_position_y_5, z_bottom_1] + fixed_rotation
+        dest_pose_5_3 = [object_position_x_5, object_position_y_5, z_middle_1] + fixed_rotation
+        dest_pose_5_4 = [target_position_x_5, target_position_y_5, z_top_1] + fixed_rotation
+        dest_pose_5_5 = [target_position_x_5, target_position_y_5, z_middle_1] + fixed_rotation  
+        dest_pose_5_6 = [target_position_x_5, target_position_y_5, z_top_1] + fixed_rotation
+        
+        dest_pose_6_1 = [object_position_x_6, object_position_y_6, z_middle_1] + fixed_rotation
+        dest_pose_6_2 = [object_position_x_6, object_position_y_6, z_bottom_1] + fixed_rotation
+        dest_pose_6_3 = [object_position_x_6, object_position_y_6, z_middle_1] + fixed_rotation 
+        dest_pose_6_4 = [target_position_x_6, target_position_y_6, z_top_1] + fixed_rotation
+        dest_pose_6_5 = [target_position_x_6, target_position_y_6, z_middle_1] + fixed_rotation
+        dest_pose_6_6 = [target_position_x_6, target_position_y_6, z_top_1] + fixed_rotation
+
+        # move to the destination poses
+        self.__move_to_pose(dest_pose_1_1, 6)
+        self.__move_to_pose(dest_pose_1_2, 2)
+        self.__grasp()
+        self.__move_to_pose(dest_pose_1_3, 6)
+        self.__move_to_pose(dest_pose_1_4, 2)
+        self.__move_to_pose(dest_pose_1_5, 2)
+        self.__open()
+        self.__move_to_pose(dest_pose_1_6, 2)
+
+
+        self.__move_to_pose(dest_pose_2_1, 6)
+        self.__move_to_pose(dest_pose_2_2, 2)
+        self.__grasp()
+        self.__move_to_pose(dest_pose_2_3, 6)
+        self.__move_to_pose(dest_pose_2_4, 2)
+        self.__move_to_pose(dest_pose_2_5, 2)
+        self.__open()
+        self.__move_to_pose(dest_pose_2_6, 2)
+
+        self.__move_to_pose(dest_pose_3_1, 6)
+        self.__move_to_pose(dest_pose_3_2, 2)
+        self.__grasp()
+        self.__move_to_pose(dest_pose_3_3, 6)
+        self.__move_to_pose(dest_pose_3_4, 2)
+        self.__move_to_pose(dest_pose_3_5, 2)
+        self.__open()
+        self.__move_to_pose(dest_pose_3_6, 2)
+
+        self.__move_to_pose(dest_pose_4_1, 6)
+        self.__move_to_pose(dest_pose_4_2, 2)
+        self.__grasp()
+        self.__move_to_pose(dest_pose_4_3, 6)
+        self.__move_to_pose(dest_pose_4_4, 2)
+        self.__move_to_pose(dest_pose_4_5, 2)
+        self.__open()
+        self.__move_to_pose(dest_pose_4_6, 2)
+
+        self.__move_to_pose(dest_pose_5_1, 6)
+        self.__move_to_pose(dest_pose_5_2, 2)
+        self.__grasp()
+        self.__move_to_pose(dest_pose_5_3, 6)
+        self.__move_to_pose(dest_pose_5_4, 2)
+        self.__move_to_pose(dest_pose_5_5, 2)
+        self.__open()
+        self.__move_to_pose(dest_pose_5_6, 2)
+
+        self.__move_to_pose(dest_pose_6_1, 6)
+        self.__move_to_pose(dest_pose_6_2, 2)
+        self.__grasp()
+        self.__move_to_pose(dest_pose_6_3, 6)
+        self.__move_to_pose(dest_pose_6_4, 2)
+        self.__move_to_pose(dest_pose_6_5, 2)
+        self.__open()
+        self.__move_to_pose(dest_pose_6_6, 2)
+
+        # move back to the starting pose
+        self.__move_to_pose(starting_pose, 3)
+
+
 if __name__ == '__main__':
     robot_environment = RobotEnvironment(pc_id=2)
-    robot_environment.run_loop()
+
+    # robot_environment.run_loop()
+
+    #script grasp one toy
+    # robot_environment.script()
+
+
+    #script_grasp_six_toy
+    robot_environment.script_grasp_six_toy()
+    
 
