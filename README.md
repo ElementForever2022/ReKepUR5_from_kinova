@@ -33,6 +33,8 @@ python RobotEnvironment/auto_calibration.py
 ```
 It may notice you that <font color='red'>camera is not found</font>. You need to manually set the camera serial number in the "RobotEnvironment/registered_camera.csv".
 
+A more detailed description is at: 标定流程.txt
+
 ### Whole pipeline
 The pipeline is composed of 3 parts:
 - 0. Callibration: The matrix of world2robot is stored in <font color='orange'>./xlp_biaoding/matrix_world2robot</font>, make sure it has been generated and copied to robot_state.json's "misc"["world2robot_homo"].
