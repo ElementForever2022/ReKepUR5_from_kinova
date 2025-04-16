@@ -54,6 +54,8 @@ python main_vision.py --instruction "help me grasp the rectangular cake and move
 python r2d2_rekep.py
 ```
 
+For a more detailed description, see: rekep运行流程.txt
+
 ## File structure
 ### Template Classes
 dir: RobotEnvironment
