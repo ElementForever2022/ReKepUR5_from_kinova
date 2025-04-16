@@ -1,0 +1,24 @@
+
+拍摄：
+python photo.py --frame_number 2
+
+查询：
+python main_vision.py --instruction "help me grasp the scissors and move up" --obj_list 'scissors' --data_path /home/ur5/rekep/ReKepUR5_from_kinova/data --frame_number 2
+
+路径填写：
+modify the 750th line of r2d2_rekep.py to the path of the vlm_query directory
+
+暖机：
+python warmup.py
+polyscope:点两下
+（注意ip）
+
+检查：
+r2d2_rekep.py中传给robotEnv的ip是否正确
+
+执行：
+python r2d2_rekep.py
+会输出路径点，确认正确后按回车，机械臂开始运动
+
+调整项：
+爪子长度：gripper_length

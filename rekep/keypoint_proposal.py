@@ -132,7 +132,9 @@ class KeypointProposer:
             box_height = 30
 
             # 此时pixel是2D的，很奇怪，此时我在前面加一个0?
-            # pixel = np.hstack(([0],pixel))
+            pixel = np.hstack(([0],pixel))
+            # 切换：是否注释上面这行。处理神秘报错
+            
             print('pixel:', pixel)
             cv2.rectangle(projected, (pixel[2] - box_width // 2, pixel[1] - box_height // 2), (pixel[2] + box_width // 2, pixel[1] + box_height // 2), (255, 255, 255), -1)
             cv2.rectangle(projected, (pixel[2] - box_width // 2, pixel[1] - box_height // 2), (pixel[2] + box_width // 2, pixel[1] + box_height // 2), (0, 0, 0), 2)

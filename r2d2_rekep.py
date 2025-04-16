@@ -80,12 +80,18 @@ class MainR2D2:
 
         # self.vision = R2D2Vision(visualize=self.visualize)
         # self.kinova = KinovaRobot()
-        self.robot_env = RobotEnv()
+
+        #注意，这里的ip需要根据实际情况进行修改。可以去polyscope中查看ip
+        self.robot_env = RobotEnv(ip='192.168.1.15', port=30004)
+
         self.env = R2D2Env(global_config['env'])
 
         # self.gripper_length = 0.240 # 工具长度
         # self.gripper_length = 0.180 # 工具长度
+
+        # 爪子长度
         self.gripper_length = 0.160 # 工具长度
+
         print('gripper length:', self.gripper_length,'m')
         self.mat_gripper2ee = np.zeros(4)
 
@@ -749,7 +755,9 @@ if __name__ == "__main__":
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-02-26_10-35-40_help_me_take_the_cube'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-04_19-23-52_help_me_take_the_block'
     # newest_rekep_dir = '/home/ur5/rekep/ReKepUR5_from_kinova/vlm_query/2025-03-13_10-55-33_help_me_grasp_the_rectangular_cake_and_drop_it_on_the_pen_tip'
-    newest_rekep_dir = './vlm_query/2025-03-20_16-27-43_help_me_grasp_the_rectangular_cake_and_drop_it_on_the_pen_tip'
+    # newest_rekep_dir = './vlm_query/2025-03-20_16-27-43_help_me_grasp_the_rectangular_cake_and_drop_it_on_the_pen_tip'
+    newest_rekep_dir = './vlm_query/2025-04-16_15-39-08_help_me_grasp_the_scissors_and_move_up'
+
     
     main = MainR2D2(visualize=args.visualize)
     main.perform_task(instruction=args.instruction, rekep_program_dir=newest_rekep_dir)

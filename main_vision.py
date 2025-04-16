@@ -35,6 +35,17 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 import time
 
+# 格式转换
+# 由于v2的调用返回的是字典，所以需要进行格式转换
+from types import SimpleNamespace
+def dict_to_namespace(d):
+    if isinstance(d, dict):
+        return SimpleNamespace(**{k: dict_to_namespace(v) for k, v in d.items()})
+    elif isinstance(d, list):
+        return [dict_to_namespace(item) for item in d]
+    else:
+        return d
+
 def timer_decorator(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -141,9 +152,19 @@ class MainVision:
         if isinstance(obj_list, str):
             obj_list = obj_list.split(',')  # 如果输入是逗号分隔的字符串
     
+        # 里面已经替换成新的调用了，现在用的是v2的调用
         results = gdino.detect_objects(rgb_path, obj_list)
+
+        #由于v2的调用返回的是字典，所以需要对results进行格式转换
+        #打印results
+        print(f"Debug: Results: {results}")
+        # 格式转换
+        results = dict_to_namespace(results)
+        # 打印转换后的results
+        print(f"Debug: Results after conversion: {results}")
+
         self._show_objects(rgb, results.objects)
-        # print(f"Debug: Detected {len(results)} objects")
+
         boxes = []
         for obj in results.objects:
             print(f"class: {obj.category}, conf: {obj.score:.2f}, bbox: {obj.bbox}")

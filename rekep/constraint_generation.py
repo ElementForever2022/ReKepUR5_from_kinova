@@ -17,8 +17,8 @@ class ConstraintGenerator:
     def __init__(self, config):
         self.config = config
         # self.client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
-        self.client = OpenAI(base_url='https://api.openai-proxy.org/v1',
-        api_key='sk-eLlJ9Vlwl88PbUCokdmCMG1B39RoWSAoLSon7edAkNy0TR11',)
+        self.client = OpenAI(base_url='https://api.chatanywhere.tech',
+        api_key='sk-01pKrNJFlwstGXg23sXhc2LrDdk8XSRlKM43BnCGIDIkZRDc',)
         self.base_dir = './vlm_query'
         with open(os.path.join(self.base_dir, 'prompt_template.txt'), 'r') as f:
             self.prompt_template = f.read()
