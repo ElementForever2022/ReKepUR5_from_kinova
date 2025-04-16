@@ -53,7 +53,9 @@ class RobotEnvironment(Visualizer, MotorController):
         self.warmed_up = False
 
         # robot configs
-        self.robot_host = '192.168.0.201' if pc_id == 2 else '192.168.1.201' # the ip address of the robot
+        self.robot_host = '192.168.1.15' if pc_id == 2 else '192.168.1.201' # the ip address of the robot
+        # 注意，这里是机器人的地址，可能会变化。当前正确的机器人ip地址应该在polyscope中查看
+
         self.robot_port = 30004 # the port of the robot
         self.robot_config_filepath = pathlib.Path(__file__).parent / 'Servoj_RTDE_UR5' / 'control_loop_configuration.xml' # the config file of the robot
         print_debug(f'loading robot config from: {self.robot_config_filepath}', color_name='COLOR_WHITE')
@@ -716,13 +718,12 @@ class RobotEnvironment(Visualizer, MotorController):
 if __name__ == '__main__':
     robot_environment = RobotEnvironment(pc_id=2)
 
-    # robot_environment.run_loop()
+    # 可视化界面
+    robot_environment.run_loop()
+    # 键盘控制移动
 
-    #script grasp one toy
+    # 电影
     # robot_environment.script()
-
-
-    #script_grasp_six_toy
-    robot_environment.script_grasp_six_toy()
+    # robot_environment.script_grasp_six_toy()
     
 

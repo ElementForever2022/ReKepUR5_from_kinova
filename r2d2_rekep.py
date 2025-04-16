@@ -112,6 +112,8 @@ class MainR2D2:
                                     #    ik_solver,
                                          self.env.reset_joint_pos)
         # self.visualizer = Visualizer(global_config['visualizer'])
+
+        # 配置文件在这里
         with open('./robot_state.json', 'r') as f:
             robot_state = json.load(f)
             # 获取坐标系变换矩阵
