@@ -1,3 +1,7 @@
+#6d的main_vision
+#仅保留约束生成的调用
+#调用的约束生成改为constraint_generation_6d.py
+
 import os
 import torch
 import numpy as np
@@ -7,7 +11,9 @@ import supervision as sv
 import cv2
 
 from rekep.keypoint_proposal import KeypointProposer
-from rekep.constraint_generation import ConstraintGenerator
+
+from rekep.constraint_generation_6d import ConstraintGenerator
+
 from rekep.utils import (
     bcolors,
     get_config,
@@ -125,66 +131,66 @@ class MainVision:
     @timer_decorator
     def perform_task(self, instruction,obj_list, data_path, frame_number):
         # BUG: name for  color is not consistent
-        color_path = os.path.join(data_path, f'color_{frame_number:06d}.npy')
-        depth_path = os.path.join(data_path, f'depth_{frame_number:06d}.npy')
+        # color_path = os.path.join(data_path, f'color_{frame_number:06d}.npy')
+        # depth_path = os.path.join(data_path, f'depth_{frame_number:06d}.npy')
 
         #png格式的rgb图
-        png_path = os.path.join(data_path, f'color_{frame_number:06d}.png')
+        # png_path = os.path.join(data_path, f'color_{frame_number:06d}.png')
 
-        if not os.path.exists(color_path) or not os.path.exists(depth_path):
-            raise FileNotFoundError(f"Color or depth frame not found for frame {frame_number}")
+        # if not os.path.exists(color_path) or not os.path.exists(depth_path):
+        #     raise FileNotFoundError(f"Color or depth frame not found for frame {frame_number}")
 
-        rgb = np.load(color_path)
-        depth = np.load(depth_path)
+        # rgb = np.load(color_path)
+        # depth = np.load(depth_path)
 
-        print(f"Debug: Input image shape: {rgb.shape}") # (480, 640, 3)
-        print(f"Debug: Input depth shape: {depth.shape}") # (480, 640)  
+        # print(f"Debug: Input image shape: {rgb.shape}") # (480, 640, 3)
+        # print(f"Debug: Input depth shape: {depth.shape}") # (480, 640)  
 
         # detect objects
-        gdino = GroundingDINO()
+        # gdino = GroundingDINO()
 
         #png格式的rgb图
         # rgb_path = '/home/ur5/rekep/Rekep4Real/d435i/camera_shot/color_shot_0.png' # save rgb to png at data temperarily for upload
-        rgb_path = png_path
+        # rgb_path = png_path
         #使用photo.py生成的npy格式的rgb图转换成的png格式的rgb图
 
         #通道转换
         # bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
         # cv2.imwrite(rgb_path, bgr)
 
-        if isinstance(obj_list, str):
-            obj_list = obj_list.split(',')  # 如果输入是逗号分隔的字符串
+        # if isinstance(obj_list, str):
+        #     obj_list = obj_list.split(',')  # 如果输入是逗号分隔的字符串
     
         # 里面已经替换成新的调用了，现在用的是v2的调用
-        results = gdino.detect_objects(rgb_path, obj_list)
+        # results = gdino.detect_objects(rgb_path, obj_list)
 
         #由于v2的调用返回的是字典，所以需要对results进行格式转换
         #打印results
-        print(f"Debug: Results: {results}")
+        # print(f"Debug: Results: {results}")
         # 格式转换
-        results = dict_to_namespace(results)
+        # results = dict_to_namespace(results)
         # 打印转换后的results
-        print(f"Debug: Results after conversion: {results}")
+        # print(f"Debug: Results after conversion: {results}")
 
-        self._show_objects(rgb, results.objects)
+        # self._show_objects(rgb, results.objects)
 
-        boxes = []
-        for obj in results.objects:
-            print(f"class: {obj.category}, conf: {obj.score:.2f}, bbox: {obj.bbox}")
-            boxes.append(obj.bbox)
-        print(f"Debug: obj_list: {obj_list}")
-        print(f"Debug: Boxes: {boxes}")
+        # boxes = []
+        # for obj in results.objects:
+        #     print(f"class: {obj.category}, conf: {obj.score:.2f}, bbox: {obj.bbox}")
+        #     boxes.append(obj.bbox)
+        # print(f"Debug: obj_list: {obj_list}")
+        # print(f"Debug: Boxes: {boxes}")
         # import pdb; pdb.set_trace()
         # Generate masks
         # masks_dict = self.mask_generator.generate(rgb)
-        self.mask_generator.set_image(rgb)
-        with torch.no_grad():
-            masks, scores, logits = self.mask_generator.predict(box=boxes, multimask_output=False)
+        # self.mask_generator.set_image(rgb)
+        # with torch.no_grad():
+        #     masks, scores, logits = self.mask_generator.predict(box=boxes, multimask_output=False)
         # masks = [m['segmentation'] for m in masks_dict]
-        print(f"Debug: Generated {len(masks)} masks")
-        print(f"Debug: masks shape: {masks[0].shape}")
-        print(f"Debug: Type of masks: {type(masks)}")
-        print(f'Debug: Data type of masks: {masks.dtype}') # float32
+        # print(f"Debug: Generated {len(masks)} masks")
+        # print(f"Debug: masks shape: {masks[0].shape}")
+        # print(f"Debug: Type of masks: {type(masks)}")
+        # print(f'Debug: Data type of masks: {masks.dtype}') # float32
         
         # 将rgb的mask[0]的部分进行反色
         # masked_rgb = rgb.copy()
@@ -197,17 +203,38 @@ class MainVision:
         # TODO: Add point cloud data from DepthPro model 
 
         # Generate point cloud from depth image
-        points = self.depth_to_pointcloud(depth)
-        print(f"Debug: Generated point cloud with shape: {points.shape}")
+        # points = self.depth_to_pointcloud(depth)
+        # print(f"Debug: Generated point cloud with shape: {points.shape}")
         # ====================================
         # = Keypoint Proposal and Constraint Generation
         # ====================================
-        keypoints, projected_img = self.keypoint_proposer.get_keypoints(rgb, points, masks)
-        print(f'{bcolors.HEADER}Got {len(keypoints)} proposed keypoints{bcolors.ENDC}')
-        if self.visualize:
-            self._show_image(projected_img,rgb)
-        metadata = {'init_keypoint_positions': keypoints, 'num_keypoints': len(keypoints)}
+
+        # 原本的keypoint提取，不需要，注释掉
+        # keypoints, projected_img = self.keypoint_proposer.get_keypoints(rgb, points, masks)
+        # print(f'{bcolors.HEADER}Got {len(keypoints)} proposed keypoints{bcolors.ENDC}')
+        # if self.visualize:
+        #     self._show_image(projected_img,rgb)
+
+        # 原本的metadata，不需要，注释掉
+        # metadata = {'init_keypoint_positions': keypoints, 'num_keypoints': len(keypoints)}
+
+        #++
+        import cv2
+        import json
+        # 读取6dpose的图片
+        # /home/liwenbo/project/yt/ReKepUR5_from_kinova/draw/6d_pose_img.png
+        projected_img_path = "/home/liwenbo/project/yt/ReKepUR5_from_kinova/draw/6d_pose_img.png"
+        projected_img = cv2.imread(projected_img_path, cv2.IMREAD_COLOR)        # 读取metadata
+        if projected_img is None:
+            raise FileNotFoundError(f"无法读取图像: {projected_img_path}")
+        # /home/liwenbo/project/yt/ReKepUR5_from_kinova/draw/metadata.json
+        metadata_path = "/home/liwenbo/project/yt/ReKepUR5_from_kinova/draw/metadata.json"
+        with open(metadata_path, "r") as f:
+            metadata = json.load(f)
+
+        # 约束生成
         rekep_program_dir = self.constraint_generator.generate(projected_img, instruction, metadata)
+        
         print(f'{bcolors.HEADER}Constraints generated and saved in {rekep_program_dir}{bcolors.ENDC}')
         
     def _show_objects(self, rgb, results):

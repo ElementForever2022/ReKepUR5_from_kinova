@@ -73,7 +73,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     #路径
-    data_path = "/home/ur5/rekep/ReKepUR5_from_kinova/data"
+    # data_path = "/home/ur5/rekep/ReKepUR5_from_kinova/data"
+    #/home/liwenbo/project/yt/ReKepUR5_from_kinova/data
+    data_path = "/home/liwenbo/project/yt/ReKepUR5_from_kinova/data"
+
 
     prs = PRS()
     time.sleep(2)
